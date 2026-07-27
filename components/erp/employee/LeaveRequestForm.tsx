@@ -214,12 +214,10 @@ export default function LeaveRequestForm({
             value={startDate}
             onChange={(date) => {
               setStartDate(date);
-              if (isHalfDay) {
-                setEndDate(date);
-              } else if (endDate && date > endDate) {
-                // If end date is before new start date, reset it
-                setEndDate('');
-              }
+              // Default end date to the same day — covers the common
+              // single-day-leave case with no extra clicks; the employee
+              // can still change it for a multi-day request.
+              setEndDate(date);
             }}
             minDate={tomorrow}
             placeholder='Select start date'

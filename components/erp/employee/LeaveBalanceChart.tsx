@@ -62,9 +62,13 @@ export default function LeaveBalanceChart({
       <div className='space-y-4'>
         {displayBalances.map((balance) => {
           const info = getLeaveTypeInfo(balance.leave_type);
-          const percentage =
+          // Fill based on consumption (used/total), not what's left — a bar
+          // that fills up as leave is *used* matches how progress bars are
+          // read; filling it from remaining_days made an almost-untouched
+          // balance look almost fully consumed.
+          const usedPercentage =
             balance.total_allocated > 0
-              ? (balance.remaining_days / balance.total_allocated) * 100
+              ? Math.min(100, (balance.used_days / balance.total_allocated) * 100)
               : 0;
 
           // For casual leave, calculate accrued amount up to current month
@@ -118,7 +122,7 @@ export default function LeaveBalanceChart({
               <div className='relative w-full h-2 bg-gray-800 rounded-full overflow-hidden'>
                 <div
                   className={`h-full ${getProgressBarColor(balance.leave_type)} transition-all duration-300`}
-                  style={{ width: `${percentage}%` }}
+                  style={{ width: `${usedPercentage}%` }}
                 />
               </div>
 
@@ -131,7 +135,7 @@ export default function LeaveBalanceChart({
                   </span>
                 </span>
                 <span className='text-gray-500'>
-                  {percentage.toFixed(0)}% available
+                  {usedPercentage.toFixed(0)}% used
                 </span>
               </div>
             </div>
