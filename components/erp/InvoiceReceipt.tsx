@@ -21,7 +21,9 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
       <style>{`
         @media screen {
           .invoice-receipt {
-            display: none;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 4px 16px rgba(0, 0, 0, 0.35);
+            border-radius: 4px;
+            overflow: hidden;
           }
         }
 
@@ -177,7 +179,7 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
         </div>
         <div className="invoice-receipt__meta-row">
           <span>Payment:</span>
-          <span>{receipt.paymentMethod}</span>
+          <span>{receipt.paymentMethod.replace('_', ' ')}</span>
         </div>
 
         <table>

@@ -17,7 +17,13 @@ import { getTimeLogsByRange } from '@/lib/erp/time-logs';
 export default async function EmployeeAttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; missed?: string; tab?: string }>;
+  searchParams: Promise<{
+    date?: string;
+    missed?: string;
+    tab?: string;
+    attendanceId?: string;
+    status?: string;
+  }>;
 }) {
   const session = await requireEmployeeAuth();
   const params = await searchParams;
@@ -140,7 +146,7 @@ export default async function EmployeeAttendancePage({
           {/* Right — Request Forms */}
           {isFeatureAvailable && (
             <div className="lg:col-span-1">
-              <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 sticky top-6">
+              <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto overscroll-contain">
                 {/* Tab switcher */}
                 <div className="flex gap-1 mb-5 bg-[#0a0a0a] p-1 rounded-lg">
                   <a
@@ -189,6 +195,8 @@ export default async function EmployeeAttendancePage({
                       employeeId={session.id}
                       initialDate={params?.date}
                       initialIsMissed={params?.missed === 'true'}
+                      initialAttendanceId={params?.attendanceId ? parseInt(params.attendanceId, 10) : null}
+                      initialCurrentStatus={params?.status || null}
                     />
                   </>
                 )}

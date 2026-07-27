@@ -59,6 +59,16 @@ export default function DatePicker({
   );
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Re-sync when the value prop changes after mount (e.g. a date picked
+  // elsewhere on the page, like a calendar cell, updates this field via
+  // props) — without this, only the very first value is ever reflected,
+  // since useState's initializer only runs once.
+  useEffect(() => {
+    const parsed = value ? parseLocalDateString(value) : null;
+    setSelectedDate(parsed);
+    if (parsed) setDisplayDate(parsed);
+  }, [value]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

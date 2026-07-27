@@ -75,3 +75,67 @@ export async function linkOrderTransaction(
 
   if (error) throw error;
 }
+
+/**
+ * List past invoices (newest first), optionally filtered by month
+ * (YYYY-MM) and/or a case-insensitive client-name search.
+ */
+export async function getOrders(filters?: {
+  month?: string;
+  clientName?: string;
+}): Promise<Order[]> {
+  try {
+    let query = supabase.from('orders').select('*');
+
+    if (filters?.month) {
+      const startDate = `${filters.month}-01`;
+      const nextMonth = new Date(`${filters.month}-01`);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      const nextMonthStr = nextMonth.toISOString().slice(0, 10);
+      query = query.gte('created_at', startDate).lt('created_at', nextMonthStr);
+    }
+
+    if (filters?.clientName) {
+      query = query.ilike('client_name', `%${filters.clientName}%`);
+    }
+
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    throw handleDatabaseError(error, 'fetch orders');
+  }
+}
+
+/**
+ * Fetch a single invoice with its line items — used to reconstruct a
+ * printable/downloadable receipt for a past invoice.
+ */
+export async function getOrderWithItems(
+  orderId: number,
+): Promise<{ order: Order; items: OrderItem[] } | null> {
+  try {
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (orderError) throw orderError;
+    if (!order) return null;
+
+    const { data: items, error: itemsError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('id', { ascending: true });
+
+    if (itemsError) throw itemsError;
+
+    return { order, items: items || [] };
+  } catch (error) {
+    throw handleDatabaseError(error, 'fetch invoice');
+  }
+}

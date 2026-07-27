@@ -1,6 +1,6 @@
 // Service Billing & Tax Invoice Types
 
-export type PaymentMethod = 'CASH' | 'UPI' | 'CARD';
+export type PaymentMethod = 'CASH' | 'UPI' | 'BANK_TRANSFER';
 export type OrderStatus = 'delivered' | 'cancelled';
 export type OrderPaymentStatus = 'pending' | 'completed' | 'failed';
 

@@ -52,13 +52,13 @@ const REQUEST_TYPE_OPTIONS: { value: AttendanceRegularisationType; label: string
   },
 ];
 
-/** Format a TIMESTAMPTZ string for a datetime-local input (YYYY-MM-DDTHH:MM) */
-function toDatetimeLocal(isoString: string | null | undefined): string {
+/** Extract just the HH:MM time portion of a TIMESTAMPTZ string, for a time-only input (the date is already fixed by the Attendance Date field above it). */
+function toTimeOnly(isoString: string | null | undefined): string {
   if (!isoString) return '';
   try {
     const d = new Date(isoString);
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   } catch {
     return '';
   }
@@ -106,6 +106,16 @@ export default function RegularisationRequestForm({
     requestType === 'missed_both' ||
     requestType === 'clock_out_correction';
 
+  // Sync the selected date when it's picked from the attendance calendar
+  // (initialDate changes after that click updates the URL).
+  useEffect(() => {
+    if (initialDate) {
+      setSelectedDate(initialDate);
+      setClockInTime('');
+      setClockOutTime('');
+    }
+  }, [initialDate]);
+
   // Fetch attendance info when date or type changes
   useEffect(() => {
     if (!selectedDate) {
@@ -122,10 +132,10 @@ export default function RegularisationRequestForm({
         setAttendanceId(result.attendanceId || null);
         // For correction types, pre-fill the input with current value
         if (requestType === 'clock_in_correction' && result.clockInTime) {
-          setClockInTime(toDatetimeLocal(result.clockInTime));
+          setClockInTime(toTimeOnly(result.clockInTime));
         }
         if (requestType === 'clock_out_correction' && result.clockOutTime) {
-          setClockOutTime(toDatetimeLocal(result.clockOutTime));
+          setClockOutTime(toTimeOnly(result.clockOutTime));
         }
       }
     });
@@ -139,12 +149,12 @@ export default function RegularisationRequestForm({
     formData.set('request_date', selectedDate);
     formData.set('request_type', requestType);
 
-    // Convert datetime-local inputs to ISO strings
+    // Combine the (already-selected) date with the entered time-only value
     if (clockInTime) {
-      formData.set('requested_clock_in_time', new Date(clockInTime).toISOString());
+      formData.set('requested_clock_in_time', new Date(`${selectedDate}T${clockInTime}`).toISOString());
     }
     if (clockOutTime) {
-      formData.set('requested_clock_out_time', new Date(clockOutTime).toISOString());
+      formData.set('requested_clock_out_time', new Date(`${selectedDate}T${clockOutTime}`).toISOString());
     }
 
     // Pass current values for audit trail
@@ -272,12 +282,11 @@ export default function RegularisationRequestForm({
             Requested Clock-In Time <span className="text-red-500">*</span>
           </label>
           <input
-            type="datetime-local"
+            type="time"
             id="reg_clock_in_time"
             value={clockInTime}
             onChange={(e) => setClockInTime(e.target.value)}
             required={needsClockIn}
-            max={`${selectedDate}T23:59`}
             className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white [color-scheme:dark]"
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -295,12 +304,11 @@ export default function RegularisationRequestForm({
             Requested Clock-Out Time <span className="text-red-500">*</span>
           </label>
           <input
-            type="datetime-local"
+            type="time"
             id="reg_clock_out_time"
             value={clockOutTime}
             onChange={(e) => setClockOutTime(e.target.value)}
             required={needsClockOut}
-            max={`${selectedDate}T23:59`}
             className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white [color-scheme:dark]"
           />
           <p className="text-xs text-gray-500 mt-1">

@@ -1,17 +1,19 @@
 'use server';
 
 import { z } from 'zod';
-import { requireRole } from '@/lib/auth';
+import { requireAuth, requireRole } from '@/lib/auth';
 import {
   createOrder,
   createOrderItems,
   deleteOrder,
   linkOrderTransaction,
+  getOrders,
+  getOrderWithItems,
 } from '@/lib/erp/billing';
 import { insertLedgerEntry } from '@/lib/erp/finance';
 import { computeGstBreakdown, round2Amount } from '@/lib/billing-tax';
 import { revalidatePath } from 'next/cache';
-import type { ProcessServiceInvoiceResult, ReceiptLineItem } from '@/types/billing';
+import type { Order, ProcessServiceInvoiceResult, ReceiptData, ReceiptLineItem } from '@/types/billing';
 
 const lineItemSchema = z.object({
   description: z.string().trim().min(1, 'Description is required'),
@@ -21,7 +23,7 @@ const lineItemSchema = z.object({
 
 const processServiceInvoiceSchema = z.object({
   clientName: z.string().trim().min(1, 'Client name is required'),
-  paymentMethod: z.enum(['CASH', 'UPI', 'CARD']),
+  paymentMethod: z.enum(['CASH', 'UPI', 'BANK_TRANSFER']),
   items: z.array(lineItemSchema).min(1, 'Add at least one line item'),
   notes: z.string().trim().nullable().optional(),
 });
@@ -140,5 +142,68 @@ export async function processServiceInvoice(
       success: false,
       error: error instanceof Error ? error.message : 'Failed to process invoice',
     };
+  }
+}
+
+/**
+ * List past invoices for the history view.
+ */
+export async function getOrdersAction(filters?: {
+  month?: string;
+  clientName?: string;
+}): Promise<Order[]> {
+  try {
+    await requireAuth();
+    return await getOrders(filters);
+  } catch (error) {
+    console.error('Get orders error:', error);
+    return [];
+  }
+}
+
+export interface GetOrderReceiptResult {
+  success: boolean;
+  error?: string;
+  receipt?: ReceiptData;
+}
+
+/**
+ * Reconstruct a printable/downloadable receipt for a past invoice, so it
+ * can be reprinted from the invoice history list.
+ */
+export async function getOrderReceiptAction(orderId: number): Promise<GetOrderReceiptResult> {
+  try {
+    await requireAuth();
+
+    const result = await getOrderWithItems(orderId);
+    if (!result) {
+      return { success: false, error: 'Invoice not found' };
+    }
+
+    const { order, items } = result;
+    const receiptItems: ReceiptLineItem[] = items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      lineTotal: item.line_total,
+    }));
+
+    return {
+      success: true,
+      receipt: {
+        invoiceNumber: order.invoice_number,
+        orderNumber: `ORD-${String(order.id).padStart(6, '0')}`,
+        createdAt: order.created_at,
+        paymentMethod: order.payment_method,
+        clientName: order.client_name,
+        items: receiptItems,
+        taxableValue: order.taxable_value,
+        cgstAmount: order.cgst_amount,
+        sgstAmount: order.sgst_amount,
+        grandTotal: order.grand_total,
+      },
+    };
+  } catch (error) {
+    console.error('Get order receipt error:', error);
+    return { success: false, error: 'Failed to fetch invoice' };
   }
 }

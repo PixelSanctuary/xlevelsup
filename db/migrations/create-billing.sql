@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY,
     invoice_number VARCHAR(20) UNIQUE,
     client_name VARCHAR(255) NOT NULL,
-    payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('CASH', 'UPI', 'CARD')),
+    payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('CASH', 'UPI', 'BANK_TRANSFER')),
     status VARCHAR(20) NOT NULL DEFAULT 'delivered' CHECK (status IN ('delivered', 'cancelled')),
     payment_status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (payment_status IN ('pending', 'completed', 'failed')),
     taxable_value NUMERIC(10, 2) NOT NULL CHECK (taxable_value >= 0),

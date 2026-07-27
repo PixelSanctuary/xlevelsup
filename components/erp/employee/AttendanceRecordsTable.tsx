@@ -7,6 +7,7 @@
  */
 
 import React, { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { AttendanceWithChangeRequest, TimeLog } from '@/types/erp';
 import { formatDuration } from '@/lib/erp/utils';
 
@@ -21,6 +22,8 @@ export default function AttendanceRecordsTable({
   employeeId,
   timeLogs = [],
 }: AttendanceRecordsTableProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
   const [selectedDateStr, setSelectedDateStr] = useState<string>('');
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -148,29 +151,34 @@ export default function AttendanceRecordsTable({
     return days;
   };
 
-  // Handle cell selection
+  // Handle cell selection — pushes the date (and, if this day already has an
+  // attendance record, its id/status) into the URL so the currently-active
+  // request form (Regularisation or Status Change, whichever tab is open)
+  // picks it up via its initialDate/initialAttendanceId/initialCurrentStatus
+  // props. Previously this reached into the DOM to set a specific form's
+  // hidden inputs directly, which only ever worked for the Status Change
+  // form and didn't update its visible date picker either.
   const handleDaySelect = (dayDate: Date, hasRecord: boolean, record?: AttendanceWithChangeRequest) => {
     const dateStr = formatDateKey(dayDate);
     setSelectedDateStr(dateStr);
-    const form = document.getElementById('change-request-form');
-    
-    if (form) {
-      // Set input values in the Sidebar form
-      const reqDateInput = document.getElementById('request_date') as HTMLInputElement;
-      if (reqDateInput) reqDateInput.value = dateStr;
 
-      const currStatusInput = document.getElementById('current_status') as HTMLInputElement;
-      if (currStatusInput) currStatusInput.value = record ? record.status : '';
-
-      const attIdInput = document.getElementById('attendance_id') as HTMLInputElement;
-      if (attIdInput) attIdInput.value = record ? String(record.id) : '';
-
-      // Scroll smoothly to form
-      form.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('date', dateStr);
+    if (record) {
+      params.set('attendanceId', String(record.id));
+      params.set('status', record.status);
+    } else {
+      params.delete('attendanceId');
+      params.delete('status');
     }
+
+    router.push(`/employee/attendance?${params.toString()}`, { scroll: false });
+
+    // Scroll smoothly to the request form once it re-renders with the new date
+    setTimeout(() => {
+      document.getElementById('change-request-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('regularisation-request-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   };
 
   // Attendance Styling Maps

@@ -18,27 +18,38 @@ interface AttendanceChangeRequestFormProps {
   employeeId: number;
   initialDate?: string;
   initialIsMissed?: boolean;
+  /** Populated when a day with an existing attendance record was picked from the calendar. */
+  initialAttendanceId?: number | null;
+  initialCurrentStatus?: string | null;
 }
 
 export default function AttendanceChangeRequestForm({
   employeeId,
   initialDate,
   initialIsMissed,
+  initialAttendanceId,
+  initialCurrentStatus,
 }: AttendanceChangeRequestFormProps) {
   const [requestedStatus, setRequestedStatus] = useState(initialIsMissed ? 'present' : '');
   const [selectedDate, setSelectedDate] = useState(initialDate || '');
   const [clockInTime, setClockInTime] = useState('');
   const [clockOutTime, setClockOutTime] = useState('');
+  const [attendanceId, setAttendanceId] = useState<number | null>(initialAttendanceId ?? null);
+  const [currentStatus, setCurrentStatus] = useState<string | null>(initialCurrentStatus ?? null);
 
-  // Handle updates to props
+  // Handle updates to props (e.g. a date picked from the calendar)
   useEffect(() => {
     if (initialDate) {
       setSelectedDate(initialDate);
+      setClockInTime('');
+      setClockOutTime('');
     }
     if (initialIsMissed) {
       setRequestedStatus('present');
     }
-  }, [initialDate, initialIsMissed]);
+    setAttendanceId(initialAttendanceId ?? null);
+    setCurrentStatus(initialCurrentStatus ?? null);
+  }, [initialDate, initialIsMissed, initialAttendanceId, initialCurrentStatus]);
 
   const handleFormAction = async (prevState: any, formData: FormData) => {
     // Validate date selection
@@ -65,10 +76,10 @@ export default function AttendanceChangeRequestForm({
 
       formData.set('request_type', requestType);
       if (hasClockIn) {
-        formData.set('requested_clock_in_time', new Date(clockInTime).toISOString());
+        formData.set('requested_clock_in_time', new Date(`${selectedDate}T${clockInTime}`).toISOString());
       }
       if (hasClockOut) {
-        formData.set('requested_clock_out_time', new Date(clockOutTime).toISOString());
+        formData.set('requested_clock_out_time', new Date(`${selectedDate}T${clockOutTime}`).toISOString());
       }
 
       return await createAttendanceRegularisationRequestAction(
@@ -100,6 +111,8 @@ export default function AttendanceChangeRequestForm({
         setSelectedDate('');
         setClockInTime('');
         setClockOutTime('');
+        setAttendanceId(null);
+        setCurrentStatus(null);
       }
       // Reload page to show updated data
       setTimeout(() => {
@@ -135,9 +148,9 @@ export default function AttendanceChangeRequestForm({
       {/* Hidden field for form submission */}
       <input type='hidden' name='request_date' value={selectedDate} />
 
-      {/* Hidden fields for modification requests (populated by table) */}
-      <input type='hidden' id='current_status' name='current_status' />
-      <input type='hidden' id='attendance_id' name='attendance_id' />
+      {/* Hidden fields for modification requests (populated when a day is picked from the calendar) */}
+      <input type='hidden' name='current_status' value={currentStatus || ''} />
+      <input type='hidden' name='attendance_id' value={attendanceId ?? ''} />
 
       {/* Requested Status */}
       <div>
@@ -209,11 +222,10 @@ export default function AttendanceChangeRequestForm({
               <span className='text-gray-500 text-xs font-normal'>(optional)</span>
             </label>
             <input
-              type='datetime-local'
+              type='time'
               id='requested_clock_in_time'
               value={clockInTime}
               onChange={(e) => setClockInTime(e.target.value)}
-              max={`${selectedDate}T23:59`}
               className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white [color-scheme:dark]'
             />
             <p className='text-xs text-gray-500 mt-1'>
@@ -230,11 +242,10 @@ export default function AttendanceChangeRequestForm({
               <span className='text-gray-500 text-xs font-normal'>(optional)</span>
             </label>
             <input
-              type='datetime-local'
+              type='time'
               id='requested_clock_out_time'
               value={clockOutTime}
               onChange={(e) => setClockOutTime(e.target.value)}
-              max={`${selectedDate}T23:59`}
               className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white [color-scheme:dark]'
             />
             <p className='text-xs text-gray-500 mt-1'>
