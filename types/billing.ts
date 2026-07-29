@@ -66,6 +66,7 @@ export interface ReceiptData {
   createdAt: string;
   paymentMethod: PaymentMethod;
   clientName: string;
+  clientPhone?: string | null;
   items: ReceiptLineItem[];
   taxableValue: number;
   cgstAmount: number;

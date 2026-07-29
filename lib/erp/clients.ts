@@ -29,6 +29,28 @@ export async function getClients(): Promise<Client[]> {
   }
 }
 
+/**
+ * Look up a client by exact (case-insensitive) name — used to enrich a
+ * generated invoice with the client's phone number. Soft-fails to null
+ * since this is a display enrichment, not something that should ever
+ * block invoice creation.
+ */
+export async function getClientByName(name: string): Promise<Client | null> {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .ilike('name', name)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('Error fetching client by name:', err);
+    return null;
+  }
+}
+
 export async function getClientById(id: number): Promise<Client | null> {
   try {
     const { data, error } = await supabase

@@ -15,22 +15,34 @@ interface InvoiceReceiptProps {
   forBulkPrint?: boolean;
 }
 
+/** Faint repeating diagonal watermark of the store name, tiled as a background pattern. */
+function buildWatermark(text: string): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'>
+    <text x='0' y='120' font-family='Arial, sans-serif' font-size='18' font-weight='700'
+      fill='rgba(176,38,255,0.05)' transform='rotate(-30 110 110)'>${text}</text>
+  </svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 export default function InvoiceReceipt({ receipt, forBulkPrint = false }: InvoiceReceiptProps) {
+  const watermark = buildWatermark(storeConfig.name);
+
   return (
-    <div className={`invoice-receipt ${forBulkPrint ? 'invoice-receipt--inline' : 'invoice-receipt--single'}`}>
+    <div
+      className={`invoice-a5 ${forBulkPrint ? 'invoice-a5--inline' : 'invoice-a5--single'}`}
+      style={{ backgroundImage: watermark, backgroundRepeat: 'repeat' }}
+    >
       <style>{`
         @media screen {
-          .invoice-receipt {
+          .invoice-a5 {
             box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 4px 16px rgba(0, 0, 0, 0.35);
-            border-radius: 4px;
-            overflow: hidden;
           }
         }
 
         @media print {
           @page {
             size: A5 portrait;
-            margin: 8mm;
+            margin: 0;
           }
 
           html, body {
@@ -42,185 +54,275 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
             visibility: hidden;
           }
 
-          .invoice-receipt,
-          .invoice-receipt * {
+          .invoice-a5,
+          .invoice-a5 * {
             visibility: visible;
           }
 
-          .invoice-receipt {
-            display: block;
+          .invoice-a5 {
+            box-shadow: none;
           }
 
-          .invoice-receipt--single {
+          .invoice-a5--single {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
           }
         }
 
-        .invoice-receipt {
-          width: 100%;
-          max-width: 380px;
+        /* A5 page: 148mm x 210mm. Padding lives on the page itself (not
+           @page margin) so print and the PDF-download path — which
+           captures this element directly and knows nothing about @page —
+           produce identical margins. */
+        .invoice-a5 {
+          width: 148mm;
+          min-height: 210mm;
           margin: 0 auto;
-          font-family: 'Courier New', Courier, monospace;
-          color: #000;
-          background: #fff;
-          font-size: 12px;
+          box-sizing: border-box;
+          padding: 10mm;
+          display: flex;
+          flex-direction: column;
+          font-family: Arial, Helvetica, sans-serif;
+          color: #111;
+          background-color: #fff;
+          font-size: 10.5px;
         }
 
-        .invoice-receipt__header {
-          text-align: center;
-          background: #111827;
-          color: #fff;
-          padding: 8px;
+        .invoice-a5__header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8mm;
+          padding-bottom: 4mm;
+          border-bottom: 2px solid #111;
+        }
+
+        .invoice-a5__logo {
+          height: 7mm;
+          width: auto;
+          display: block;
+        }
+
+        .invoice-a5__invoice-meta {
+          text-align: right;
+          flex-shrink: 0;
+        }
+
+        .invoice-a5__invoice-title {
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+        }
+
+        .invoice-a5__invoice-meta-row {
+          margin-top: 1.3mm;
+          font-size: 9px;
+          color: #333;
+        }
+
+        .invoice-a5__invoice-meta-row strong {
+          color: #111;
+        }
+
+        .invoice-a5__invoice-meta-divider {
+          margin-top: 1.8mm;
+          padding-top: 1.8mm;
+          border-top: 0.5px solid #ccc;
+        }
+
+        .invoice-a5 table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 6mm;
+        }
+
+        .invoice-a5 th {
+          text-align: left;
+          font-size: 8.5px;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: #333;
+          padding: 2mm 1.5mm;
+          border-bottom: 1.5px solid #111;
+          background: linear-gradient(90deg, rgba(0, 240, 255, 0.08), rgba(176, 38, 255, 0.08));
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
 
-        .invoice-receipt__store-name {
-          font-size: 16px;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-        }
-
-        .invoice-receipt__body {
-          padding: 8px;
-        }
-
-        .invoice-receipt__meta-row {
-          display: flex;
-          justify-content: space-between;
-          margin: 2px 0;
-        }
-
-        .invoice-receipt table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 8px 0;
-        }
-
-        .invoice-receipt th,
-        .invoice-receipt td {
-          text-align: left;
-          padding: 2px 4px;
-          font-size: 11px;
+        .invoice-a5 td {
+          font-size: 9.5px;
+          padding: 2mm 1.5mm;
+          border-bottom: 0.5px solid #ddd;
           vertical-align: top;
         }
 
-        .invoice-receipt th {
-          border-bottom: 1px solid #000;
+        .invoice-a5__col-idx {
+          width: 6mm;
+          color: #888;
         }
 
-        .invoice-receipt td.invoice-receipt__qty,
-        .invoice-receipt th.invoice-receipt__qty,
-        .invoice-receipt td.invoice-receipt__amount,
-        .invoice-receipt th.invoice-receipt__amount {
+        .invoice-a5__num {
           text-align: right;
+          white-space: nowrap;
         }
 
-        .invoice-receipt__totals {
-          border-top: 1px dashed #000;
-          padding-top: 6px;
-          margin-top: 6px;
+        .invoice-a5__totals {
+          margin-top: 5mm;
+          margin-left: auto;
+          width: 65mm;
         }
 
-        .invoice-receipt__totals-row {
+        .invoice-a5__totals-row {
           display: flex;
           justify-content: space-between;
-          padding: 2px 0;
+          padding: 1.2mm 0;
+          font-size: 9.5px;
+          color: #333;
         }
 
-        .invoice-receipt__grand-total {
-          background: #e5e7eb;
+        .invoice-a5__grand-total {
+          margin-top: 1.5mm;
+          padding: 2.5mm 3mm;
+          background: linear-gradient(90deg, #00c2d1, #b026ff);
+          color: #fff;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
           font-weight: 700;
-          font-size: 14px;
-          padding: 4px 6px;
-          margin-top: 4px;
-          border-radius: 2px;
+          font-size: 11.5px;
+          display: flex;
+          justify-content: space-between;
+          border-radius: 1mm;
         }
 
-        .invoice-receipt__footer {
+        .invoice-a5__notes {
+          margin-top: 5mm;
+          font-size: 9px;
+          color: #444;
+        }
+
+        .invoice-a5__footer {
+          margin-top: auto;
+          padding-top: 4mm;
+          border-top: 1px dashed #999;
           text-align: center;
-          margin-top: 10px;
-          border-top: 2px dashed #000;
-          padding-top: 8px;
-          font-size: 10px;
+        }
+
+        .invoice-a5__footer-address {
+          font-size: 8.5px;
+          color: #444;
+          line-height: 1.6;
+        }
+
+        .invoice-a5__footer-address strong {
+          color: #111;
+        }
+
+        .invoice-a5__footer-thanks {
+          margin-top: 2mm;
+          font-size: 8px;
+          color: #888;
+          font-style: italic;
         }
       `}</style>
 
-      <div className="invoice-receipt__header">
-        <div className="invoice-receipt__store-name">{storeConfig.name}</div>
-        {storeConfig.addressLine1 && <div>{storeConfig.addressLine1}</div>}
-        {storeConfig.addressLine2 && <div>{storeConfig.addressLine2}</div>}
-        {storeConfig.cityStatePincode && <div>{storeConfig.cityStatePincode}</div>}
-        {storeConfig.gstin && <div>GSTIN: {storeConfig.gstin}</div>}
-        {storeConfig.phone && <div>Ph: {storeConfig.phone}</div>}
+      {/* Header */}
+      <div className="invoice-a5__header">
+        {/* eslint-disable-next-line @next/next/no-img-element -- rendered into html2canvas/print snapshots, not a normal page image */}
+        <img src="/xlevelsup_logo.svg" alt={storeConfig.name} className="invoice-a5__logo" />
+        <div className="invoice-a5__invoice-meta">
+          <div className="invoice-a5__invoice-title">TAX INVOICE</div>
+          <div className="invoice-a5__invoice-meta-row">
+            Invoice #: <strong>{receipt.invoiceNumber}</strong>
+          </div>
+          <div className="invoice-a5__invoice-meta-row">Order #: {receipt.orderNumber}</div>
+          <div className="invoice-a5__invoice-meta-row">
+            {new Date(receipt.createdAt).toLocaleString('en-IN', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </div>
+          <div className="invoice-a5__invoice-meta-row">
+            Payment: <strong>{receipt.paymentMethod.replace('_', ' ')}</strong>
+          </div>
+          <div className="invoice-a5__invoice-meta-row invoice-a5__invoice-meta-divider">
+            Customer: <strong>{receipt.clientName}</strong>
+          </div>
+          {receipt.clientPhone && (
+            <div className="invoice-a5__invoice-meta-row">Phone: {receipt.clientPhone}</div>
+          )}
+        </div>
       </div>
 
-      <div className="invoice-receipt__body">
-        <div className="invoice-receipt__meta-row">
-          <span>Invoice No:</span>
-          <strong>{receipt.invoiceNumber}</strong>
-        </div>
-        <div className="invoice-receipt__meta-row">
-          <span>Order No:</span>
-          <span>{receipt.orderNumber}</span>
-        </div>
-        <div className="invoice-receipt__meta-row">
-          <span>Date:</span>
-          <span>{new Date(receipt.createdAt).toLocaleString('en-IN')}</span>
-        </div>
-        <div className="invoice-receipt__meta-row">
-          <span>Client:</span>
-          <span>{receipt.clientName}</span>
-        </div>
-        <div className="invoice-receipt__meta-row">
-          <span>Payment:</span>
-          <span>{receipt.paymentMethod.replace('_', ' ')}</span>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th className="invoice-receipt__qty">Qty</th>
-              <th className="invoice-receipt__amount">Amount</th>
+      {/* Line items */}
+      <table>
+        <thead>
+          <tr>
+            <th className="invoice-a5__col-idx">#</th>
+            <th>Description</th>
+            <th className="invoice-a5__num">Qty</th>
+            <th className="invoice-a5__num">Rate</th>
+            <th className="invoice-a5__num">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {receipt.items.map((item, index) => (
+            <tr key={index}>
+              <td className="invoice-a5__col-idx">{index + 1}</td>
+              <td>{item.description}</td>
+              <td className="invoice-a5__num">{item.quantity}</td>
+              <td className="invoice-a5__num">
+                {currencyFormatter.format(item.quantity > 0 ? item.lineTotal / item.quantity : 0)}
+              </td>
+              <td className="invoice-a5__num">{currencyFormatter.format(item.lineTotal)}</td>
             </tr>
-          </thead>
-          <tbody>
-            {receipt.items.map((item, index) => (
-              <tr key={index}>
-                <td>{item.description}</td>
-                <td className="invoice-receipt__qty">{item.quantity}</td>
-                <td className="invoice-receipt__amount">{currencyFormatter.format(item.lineTotal)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          ))}
+        </tbody>
+      </table>
 
-        <div className="invoice-receipt__totals">
-          <div className="invoice-receipt__totals-row">
-            <span>Taxable Value</span>
-            <span>{currencyFormatter.format(receipt.taxableValue)}</span>
-          </div>
-          <div className="invoice-receipt__totals-row">
-            <span>CGST ({CGST_RATE_LABEL})</span>
-            <span>{currencyFormatter.format(receipt.cgstAmount)}</span>
-          </div>
-          <div className="invoice-receipt__totals-row">
-            <span>SGST ({SGST_RATE_LABEL})</span>
-            <span>{currencyFormatter.format(receipt.sgstAmount)}</span>
-          </div>
-          <div className="invoice-receipt__totals-row invoice-receipt__grand-total">
-            <span>Grand Total</span>
-            <span>{currencyFormatter.format(receipt.grandTotal)}</span>
-          </div>
+      {/* Totals */}
+      <div className="invoice-a5__totals">
+        <div className="invoice-a5__totals-row">
+          <span>Taxable Value</span>
+          <span>{currencyFormatter.format(receipt.taxableValue)}</span>
         </div>
+        <div className="invoice-a5__totals-row">
+          <span>CGST ({CGST_RATE_LABEL})</span>
+          <span>{currencyFormatter.format(receipt.cgstAmount)}</span>
+        </div>
+        <div className="invoice-a5__totals-row">
+          <span>SGST ({SGST_RATE_LABEL})</span>
+          <span>{currencyFormatter.format(receipt.sgstAmount)}</span>
+        </div>
+        <div className="invoice-a5__grand-total">
+          <span>Grand Total</span>
+          <span>{currencyFormatter.format(receipt.grandTotal)}</span>
+        </div>
+      </div>
 
-        <div className="invoice-receipt__footer">Thank you for your business!</div>
+      {/* Footer — pushed to the bottom of the A5 page via margin-top: auto,
+          so short invoices still look like a full page, not a floating card. */}
+      <div className="invoice-a5__footer">
+        <div className="invoice-a5__footer-address">
+          <strong>{storeConfig.name}</strong>
+          {[storeConfig.addressLine1, storeConfig.addressLine2, storeConfig.cityStatePincode]
+            .filter(Boolean)
+            .map((line, index) => (
+              <span key={index}>
+                {' · '}
+                {line}
+              </span>
+            ))}
+          <br />
+          {storeConfig.gstin && <span>GSTIN: {storeConfig.gstin}</span>}
+          {storeConfig.gstin && storeConfig.phone && <span> · </span>}
+          {storeConfig.phone && <span>Ph: {storeConfig.phone}</span>}
+        </div>
+        <div className="invoice-a5__footer-thanks">
+          Thank you for your business! · This is a computer-generated invoice.
+        </div>
       </div>
     </div>
   );

@@ -308,19 +308,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Info Card */}
-        <div className='glass p-6 rounded-lg'>
-          <h3 className='text-lg font-semibold text-white mb-3'>
-            Welcome to XLEVELSUP ERP
-          </h3>
-          <p className='text-gray-400 text-sm leading-relaxed'>
-            This is your internal ERP system for managing employees, attendance,
-            payroll, and expenses. Use the navigation menu above to access
-            different modules. The system automatically calculates salaries
-            based on attendance, handles working day calculations, and provides
-            comprehensive expense tracking.
-          </p>
-        </div>
       </main>
     </ERPLayoutWrapper>
   );

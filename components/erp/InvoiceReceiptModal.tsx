@@ -80,8 +80,10 @@ export default function InvoiceReceiptModal({
     >
       {receipt && (
         <div className="space-y-5">
-          <div ref={receiptRef}>
-            <InvoiceReceipt receipt={receipt} />
+          <div className="overflow-x-auto">
+            <div ref={receiptRef}>
+              <InvoiceReceipt receipt={receipt} />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -11,6 +11,7 @@ import {
   getOrderWithItems,
 } from '@/lib/erp/billing';
 import { insertLedgerEntry } from '@/lib/erp/finance';
+import { getClientByName } from '@/lib/erp/clients';
 import { computeGstBreakdown, round2Amount } from '@/lib/billing-tax';
 import { revalidatePath } from 'next/cache';
 import type { Order, ProcessServiceInvoiceResult, ReceiptData, ReceiptLineItem } from '@/types/billing';
@@ -114,6 +115,9 @@ export async function processServiceInvoice(
       lineTotal: item.lineTotal,
     }));
 
+    // Best-effort enrichment — a phone number on file isn't required to bill a client.
+    const matchedClient = await getClientByName(clientName);
+
     return {
       success: true,
       financeSyncFailed,
@@ -126,6 +130,7 @@ export async function processServiceInvoice(
         createdAt: order.created_at,
         paymentMethod: order.payment_method,
         clientName,
+        clientPhone: matchedClient?.phone ?? null,
         items: receiptItems,
         taxableValue,
         cgstAmount,
@@ -187,6 +192,8 @@ export async function getOrderReceiptAction(orderId: number): Promise<GetOrderRe
       lineTotal: item.line_total,
     }));
 
+    const matchedClient = await getClientByName(order.client_name);
+
     return {
       success: true,
       receipt: {
@@ -195,6 +202,7 @@ export async function getOrderReceiptAction(orderId: number): Promise<GetOrderRe
         createdAt: order.created_at,
         paymentMethod: order.payment_method,
         clientName: order.client_name,
+        clientPhone: matchedClient?.phone ?? null,
         items: receiptItems,
         taxableValue: order.taxable_value,
         cgstAmount: order.cgst_amount,

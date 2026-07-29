@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * Format a Date as a local YYYY-MM-DD string. Never use `toISOString()` for
@@ -40,6 +41,12 @@ interface DatePickerProps {
   disabledDates?: Set<string> | string[];
 }
 
+interface Position {
+  top: number;
+  left: number;
+  width: number;
+}
+
 export default function DatePicker({
   value,
   onChange,
@@ -53,11 +60,16 @@ export default function DatePicker({
   disabledDates,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [position, setPosition] = useState<Position | null>(null);
   const [displayDate, setDisplayDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     value ? parseLocalDateString(value) : null,
   );
-  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setMounted(true), []);
 
   // Re-sync when the value prop changes after mount (e.g. a date picked
   // elsewhere on the page, like a calendar cell, updates this field via
@@ -69,24 +81,46 @@ export default function DatePicker({
     if (parsed) setDisplayDate(parsed);
   }, [value]);
 
-  // Close dropdown when clicking outside
+  // Position the portalled dropdown against the trigger button, and keep it
+  // pinned there on scroll/resize — rendering into document.body escapes any
+  // ancestor's overflow/stacking context (e.g. a scrollable Modal or sticky
+  // panel), which otherwise clips or hides an absolutely-positioned dropdown
+  // nested inside it.
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
+    if (!isOpen) return;
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+    const updatePosition = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
     };
+
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside (either the trigger or the portalled popover)
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || popoverRef.current?.contains(target)) {
+        return;
+      }
+      setIsOpen(false);
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
   const formatDisplayDate = (date: Date | null) => {
@@ -200,7 +234,7 @@ export default function DatePicker({
   ];
 
   return (
-    <div ref={containerRef} className='relative'>
+    <div className='relative'>
       {label && (
         <label className='block text-sm font-medium mb-2'>
           {label} {required && <span className='text-red-500'>*</span>}
@@ -209,6 +243,7 @@ export default function DatePicker({
 
       {/* Date Input Display */}
       <button
+        ref={buttonRef}
         type='button'
         onClick={() => setIsOpen(!isOpen)}
         className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white text-left flex items-center justify-between hover:border-gray-600 transition-colors'
@@ -233,122 +268,129 @@ export default function DatePicker({
 
       {helperText && <p className='text-xs text-gray-500 mt-1'>{helperText}</p>}
 
-      {/* Calendar Dropdown */}
-      {isOpen && (
-        <div className='absolute z-50 mt-2 w-full bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-lg p-4'>
-          {/* Month/Year Navigation */}
-          <div className='flex items-center justify-between mb-4'>
-            <button
-              type='button'
-              onClick={() => navigateMonth('prev')}
-              className='p-1 hover:bg-gray-800 rounded transition-colors'
-            >
-              <svg
-                className='w-5 h-5 text-gray-400'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
+      {/* Calendar Dropdown — portalled to document.body so it can never be
+          clipped by a scrollable ancestor (a Modal, a sticky side panel, etc). */}
+      {isOpen && mounted && position &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            style={{ position: 'absolute', top: position.top, left: position.left, width: position.width }}
+            className='z-[9999] bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-lg p-4'
+          >
+            {/* Month/Year Navigation */}
+            <div className='flex items-center justify-between mb-4'>
+              <button
+                type='button'
+                onClick={() => navigateMonth('prev')}
+                className='p-1 hover:bg-gray-800 rounded transition-colors'
               >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M15 19l-7-7 7-7'
-                />
-              </svg>
-            </button>
+                <svg
+                  className='w-5 h-5 text-gray-400'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M15 19l-7-7 7-7'
+                  />
+                </svg>
+              </button>
 
-            <div className='text-center'>
-              <div className='font-semibold text-white'>
-                {monthNames[displayDate.getMonth()]} {displayDate.getFullYear()}
+              <div className='text-center'>
+                <div className='font-semibold text-white'>
+                  {monthNames[displayDate.getMonth()]} {displayDate.getFullYear()}
+                </div>
               </div>
+
+              <button
+                type='button'
+                onClick={() => navigateMonth('next')}
+                className='p-1 hover:bg-gray-800 rounded transition-colors'
+              >
+                <svg
+                  className='w-5 h-5 text-gray-400'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 5l7 7-7 7'
+                  />
+                </svg>
+              </button>
             </div>
 
-            <button
-              type='button'
-              onClick={() => navigateMonth('next')}
-              className='p-1 hover:bg-gray-800 rounded transition-colors'
-            >
-              <svg
-                className='w-5 h-5 text-gray-400'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M9 5l7 7-7 7'
-                />
-              </svg>
-            </button>
-          </div>
-
-          {/* Day Names */}
-          <div className='grid grid-cols-7 gap-1 mb-2'>
-            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-              <div
-                key={day}
-                className='text-center text-xs font-medium text-gray-500 py-1'
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar Grid */}
-          <div className='grid grid-cols-7 gap-1'>
-            {days.map((day, index) => {
-              if (day === null) {
-                return <div key={`empty-${index}`} />;
-              }
-
-              const date = new Date(
-                displayDate.getFullYear(),
-                displayDate.getMonth(),
-                day,
-              );
-              const disabled = isDateDisabled(date);
-              const today = isToday(date);
-              const selected = isSelected(date);
-
-              return (
-                <button
-                  key={index}
-                  type='button'
-                  onClick={() => !disabled && handleDateClick(date)}
-                  disabled={disabled}
-                  className={`
-                    p-2 text-sm rounded transition-colors
-                    ${disabled ? 'text-gray-600 cursor-not-allowed' : 'text-white hover:bg-gray-800'}
-                    ${today && !selected ? 'bg-gray-800 font-semibold' : ''}
-                    ${selected ? 'bg-[var(--cyan)] text-black font-bold' : ''}
-                  `}
+            {/* Day Names */}
+            <div className='grid grid-cols-7 gap-1 mb-2'>
+              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                <div
+                  key={day}
+                  className='text-center text-xs font-medium text-gray-500 py-1'
                 >
                   {day}
-                </button>
-              );
-            })}
-          </div>
+                </div>
+              ))}
+            </div>
 
-          {/* Today Button */}
-          <div className='mt-3 pt-3 border-t border-gray-800'>
-            <button
-              type='button'
-              onClick={() => {
-                const today = new Date();
-                if (!isDateDisabled(today)) {
-                  handleDateClick(today);
+            {/* Calendar Grid */}
+            <div className='grid grid-cols-7 gap-1'>
+              {days.map((day, index) => {
+                if (day === null) {
+                  return <div key={`empty-${index}`} />;
                 }
-              }}
-              className='w-full py-2 text-sm text-[var(--cyan)] hover:bg-gray-800 rounded transition-colors'
-            >
-              Today
-            </button>
-          </div>
-        </div>
-      )}
+
+                const date = new Date(
+                  displayDate.getFullYear(),
+                  displayDate.getMonth(),
+                  day,
+                );
+                const disabled = isDateDisabled(date);
+                const today = isToday(date);
+                const selected = isSelected(date);
+
+                return (
+                  <button
+                    key={index}
+                    type='button'
+                    onClick={() => !disabled && handleDateClick(date)}
+                    disabled={disabled}
+                    className={`
+                      p-2 text-sm rounded transition-colors
+                      ${disabled ? 'text-gray-600 cursor-not-allowed' : 'text-white hover:bg-gray-800'}
+                      ${today && !selected ? 'bg-gray-800 font-semibold' : ''}
+                      ${selected ? 'bg-[var(--cyan)] text-black font-bold' : ''}
+                    `}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Today Button */}
+            <div className='mt-3 pt-3 border-t border-gray-800'>
+              <button
+                type='button'
+                onClick={() => {
+                  const today = new Date();
+                  if (!isDateDisabled(today)) {
+                    handleDateClick(today);
+                  }
+                }}
+                className='w-full py-2 text-sm text-[var(--cyan)] hover:bg-gray-800 rounded transition-colors'
+              >
+                Today
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

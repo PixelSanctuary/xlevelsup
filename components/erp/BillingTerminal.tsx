@@ -23,6 +23,10 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  // Server-side failure (e.g. a DB constraint the client can't validate
+  // against, or a network error) — shown as a persistent banner on the page
+  // itself, not just a toast that's easy to miss.
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleCloseReceipt = () => {
     setReceipt(null);
@@ -30,6 +34,7 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
     setNotes('');
     setItems([{ ...EMPTY_LINE }]);
     setAttemptedSubmit(false);
+    setSubmitError(null);
   };
 
   const lineTotals = useMemo(
@@ -78,6 +83,7 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
 
   const handleConfirmInvoice = async () => {
     setAttemptedSubmit(true);
+    setSubmitError(null);
 
     const hasLineErrors = items.some(
       (item) => item.description.trim() && (item.quantity <= 0 || item.rate < 0),
@@ -108,14 +114,18 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
         }
         setReceipt(result.receipt);
       } else {
-        toast.error(result.error || 'Failed to process invoice');
+        const message = result.error || 'Failed to process invoice';
+        toast.error(message);
+        setSubmitError(message);
       }
     } catch (error) {
       // Guards against a thrown/rejected request (e.g. a network error) —
       // without this, the button re-enables silently with no feedback,
       // which reads as "nothing happened" rather than a clear failure.
       console.error('Failed to process invoice:', error);
-      toast.error('Failed to process invoice — please try again');
+      const message = 'Failed to process invoice — please try again';
+      toast.error(message);
+      setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -271,6 +281,12 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
               ))}
             </div>
           </div>
+
+          {submitError && (
+            <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2.5">
+              <p className="text-xs text-red-400">⚠️ {submitError}</p>
+            </div>
+          )}
 
           <button
             onClick={handleConfirmInvoice}
