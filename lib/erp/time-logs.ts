@@ -7,13 +7,13 @@ import type { TimeLog, TimeLogSummary } from '@/types/erp';
 
 /**
  * Ensure an attendance record exists for this employee/date, marking it
- * 'present'. Only inserts when no record exists yet — never overwrites an
- * existing status (e.g. one an admin already set to half-day/leave/etc.).
- * Clocking in/out only ever wrote to time_logs; nothing else creates the
- * attendance row, so days with a completed session but no attendance
- * record would show as blank on the employee's attendance calendar.
+ * 'in_progress'. Only inserts when no record exists yet — never overwrites
+ * an existing status (e.g. one an admin already set to half-day/leave/etc).
+ * Clocking in only ever wrote to time_logs; nothing else creates the
+ * attendance row, so a day with an open session but no attendance record
+ * would show as blank on the employee's attendance calendar.
  */
-async function ensurePresentAttendanceRecord(
+async function ensureAttendanceOnClockIn(
   employeeId: number,
   date: string,
 ): Promise<void> {
@@ -25,7 +25,7 @@ async function ensurePresentAttendanceRecord(
     .maybeSingle();
 
   if (fetchError) {
-    console.error('Failed to check attendance record before clock-in/out:', fetchError);
+    console.error('Failed to check attendance record before clock-in:', fetchError);
     return;
   }
   if (existing) return;
@@ -33,12 +33,61 @@ async function ensurePresentAttendanceRecord(
   const { error: insertError } = await supabase.from('attendance').insert({
     employee_id: employeeId,
     date,
-    status: 'present',
+    status: 'in_progress',
     notes: 'Auto-created from clock-in',
   });
 
   if (insertError) {
     console.error('Failed to auto-create attendance record:', insertError);
+  }
+}
+
+/**
+ * On clock-out, upgrade the day's attendance record to 'present'. If no
+ * record exists at all (shouldn't normally happen — clock-in already
+ * creates one), create it as 'present' directly. If a record exists but
+ * was set to something other than the clock-in-created 'in_progress'
+ * (e.g. an admin already marked the day half-day/leave/absent), leave it
+ * untouched — clocking out never overrides a manually-set status.
+ */
+async function ensureAttendanceOnClockOut(
+  employeeId: number,
+  date: string,
+): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('attendance')
+    .select('id, status')
+    .eq('employee_id', employeeId)
+    .eq('date', date)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error('Failed to check attendance record before clock-out:', fetchError);
+    return;
+  }
+
+  if (!existing) {
+    const { error: insertError } = await supabase.from('attendance').insert({
+      employee_id: employeeId,
+      date,
+      status: 'present',
+      notes: 'Auto-created from clock-out',
+    });
+    if (insertError) {
+      console.error('Failed to auto-create attendance record:', insertError);
+    }
+    return;
+  }
+
+  if (existing.status !== 'in_progress') return;
+
+  const { error: updateError } = await supabase
+    .from('attendance')
+    .update({ status: 'present', notes: 'Auto-completed from clock-out' })
+    .eq('id', existing.id);
+
+  if (updateError) {
+    console.error('Failed to auto-complete attendance record:', updateError);
   }
 }
 
@@ -200,7 +249,7 @@ export async function clockIn(
 
   if (error) throw error;
 
-  await ensurePresentAttendanceRecord(employeeId, today);
+  await ensureAttendanceOnClockIn(employeeId, today);
 
   return data;
 }
@@ -264,7 +313,7 @@ export async function clockOut(
 
   if (error) throw error;
 
-  await ensurePresentAttendanceRecord(employeeId, activeLog.date);
+  await ensureAttendanceOnClockOut(employeeId, activeLog.date);
 
   return data;
 }

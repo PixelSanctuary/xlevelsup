@@ -10,6 +10,7 @@ import type {
   AttendanceRegularisationType,
   AttendanceRegularisationFormData,
   AttendanceStatus,
+  HalfDayPeriod,
 } from '@/types/erp';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -219,6 +220,7 @@ export async function createAttendanceChangeRequest(
     request_date: string;
     current_status?: AttendanceStatus | null;
     requested_status: AttendanceStatus;
+    half_day_period?: HalfDayPeriod | null;
     leave_type?: string | null;
     clock_out_time?: string | null;
     reason: string;
@@ -232,6 +234,8 @@ export async function createAttendanceChangeRequest(
       request_date: requestData.request_date,
       current_status: requestData.current_status,
       requested_status: requestData.requested_status,
+      half_day_period:
+        requestData.requested_status === 'half-day' ? requestData.half_day_period : null,
       leave_type: requestData.leave_type,
       clock_out_time: requestData.clock_out_time,
       reason: requestData.reason,
@@ -340,11 +344,15 @@ async function handleStatusChangeApproval(
   request: any,
   reviewerId: number,
 ): Promise<void> {
+  const halfDayPeriod =
+    request.requested_status === 'half-day' ? request.half_day_period ?? null : null;
+
   if (request.attendance_id) {
     const { error } = await supabase
       .from('attendance')
       .update({
         status: request.requested_status,
+        half_day_period: halfDayPeriod,
         notes: `Updated via change request #${request.id}. ${request.reason}`,
         updated_at: new Date().toISOString(),
       })
@@ -357,6 +365,7 @@ async function handleStatusChangeApproval(
         employee_id: request.employee_id,
         date: request.request_date,
         status: request.requested_status,
+        half_day_period: halfDayPeriod,
         notes: `Created via change request #${request.id}. ${request.reason}`,
         created_by: reviewerId,
       });

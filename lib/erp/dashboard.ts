@@ -32,7 +32,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   const todayAttendanceRecords = todayAttendance || [];
   const presentCount = todayAttendanceRecords.filter(
-    (a) => a.status === 'present' || a.status === 'half-day',
+    (a) => a.status === 'present' || a.status === 'half-day' || a.status === 'in_progress',
   ).length;
 
   const attendancePercentage =

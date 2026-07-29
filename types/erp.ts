@@ -53,13 +53,15 @@ export type AttendanceStatus =
   | 'half-day'
   | 'paid-leave'
   | 'unpaid-leave'
-  | 'holiday';
+  | 'holiday'
+  | 'in_progress';
 
 export interface Attendance {
   id: number;
   employee_id: number;
   date: string;
   status: AttendanceStatus;
+  half_day_period?: HalfDayPeriod | null; // which half status='half-day' refers to
   overtime_hours?: number | null; // Overtime hours for earned leave calculation
   notes?: string | null;
   created_by?: number | null;
@@ -175,6 +177,7 @@ export interface AttendanceFormData {
   employee_id: number;
   date: string;
   status: AttendanceStatus;
+  half_day_period?: HalfDayPeriod | null;
   overtime_hours?: number | null;
   notes?: string;
 }
@@ -301,6 +304,7 @@ export interface AttendanceChangeRequest {
   request_date: string;
   current_status?: AttendanceStatus | null;
   requested_status: AttendanceStatus;
+  half_day_period?: HalfDayPeriod | null;
   leave_type?: string | null;
   /** @deprecated Legacy HH:MM text column. New requests use requested_clock_out_time TIMESTAMPTZ. */
   clock_out_time?: string | null;

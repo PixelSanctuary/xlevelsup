@@ -48,9 +48,10 @@ export default function AttendanceChangeRequestsList({
     );
   };
 
-  const getAttendanceStatusBadge = (status: string) => {
+  const getAttendanceStatusBadge = (status: string, halfDayPeriod?: string | null) => {
     const badges: Record<string, { bg: string; text: string }> = {
       present: { bg: 'bg-green-500/20', text: 'text-green-400' },
+      in_progress: { bg: 'bg-amber-500/20', text: 'text-amber-400' },
       absent: { bg: 'bg-red-500/20', text: 'text-red-400' },
       'half-day': { bg: 'bg-yellow-500/20', text: 'text-yellow-400' },
       'paid-leave': { bg: 'bg-blue-500/20', text: 'text-blue-400' },
@@ -58,9 +59,14 @@ export default function AttendanceChangeRequestsList({
       holiday: { bg: 'bg-cyan-500/20', text: 'text-cyan-400' },
     };
     const badge = badges[status] || badges.present;
+    const periodSuffix =
+      status === 'half-day' && halfDayPeriod
+        ? ` (${halfDayPeriod === 'first_half' ? 'MORNING' : 'AFTERNOON'})`
+        : '';
     return (
       <span className={`px-2 py-1 rounded text-xs font-medium ${badge.bg} ${badge.text}`}>
-        {status.replace('-', ' ').toUpperCase()}
+        {status.replace(/[-_]/g, ' ').toUpperCase()}
+        {periodSuffix}
       </span>
     );
   };
@@ -143,12 +149,12 @@ export default function AttendanceChangeRequestsList({
                     <>
                       {getAttendanceStatusBadge(request.current_status)}
                       <span className="text-gray-500">→</span>
-                      {getAttendanceStatusBadge(request.requested_status)}
+                      {getAttendanceStatusBadge(request.requested_status, request.half_day_period)}
                     </>
                   ) : (
                     <>
                       <span className="text-gray-500">New Record:</span>
-                      {getAttendanceStatusBadge(request.requested_status)}
+                      {getAttendanceStatusBadge(request.requested_status, request.half_day_period)}
                     </>
                   )}
                 </div>

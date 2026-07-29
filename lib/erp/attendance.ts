@@ -75,6 +75,7 @@ export async function createAttendance(
       employee_id: data.employee_id,
       date: data.date,
       status: data.status,
+      half_day_period: data.status === 'half-day' ? data.half_day_period || null : null,
       overtime_hours: data.overtime_hours || null,
       notes: data.notes || null,
       created_by: createdBy,
@@ -98,6 +99,7 @@ export async function updateAttendance(
     .from('attendance')
     .update({
       status: data.status,
+      half_day_period: data.status === 'half-day' ? data.half_day_period || null : null,
       overtime_hours:
         data.overtime_hours !== undefined ? data.overtime_hours : null,
       notes: data.notes || null,
@@ -141,6 +143,7 @@ export async function bulkUpsertAttendance(
   status: Attendance['status'],
   notes: string | null,
   createdBy: number,
+  halfDayPeriod: Attendance['half_day_period'] = null,
 ): Promise<{ created: number; updated: number }> {
   const { data: existing, error: fetchError } = await supabase
     .from('attendance')
@@ -155,10 +158,13 @@ export async function bulkUpsertAttendance(
     existingIdByKey.set(`${row.employee_id}_${row.date}`, row.id);
   });
 
+  const halfDayPeriodValue = status === 'half-day' ? halfDayPeriod : null;
+
   const toInsert: Array<{
     employee_id: number;
     date: string;
     status: Attendance['status'];
+    half_day_period: Attendance['half_day_period'];
     notes: string | null;
     created_by: number;
   }> = [];
@@ -175,6 +181,7 @@ export async function bulkUpsertAttendance(
           employee_id: employeeId,
           date,
           status,
+          half_day_period: halfDayPeriodValue,
           notes,
           created_by: createdBy,
         });
@@ -190,7 +197,12 @@ export async function bulkUpsertAttendance(
   if (toUpdateIds.length > 0) {
     const { error } = await supabase
       .from('attendance')
-      .update({ status, notes, updated_at: new Date().toISOString() })
+      .update({
+        status,
+        half_day_period: halfDayPeriodValue,
+        notes,
+        updated_at: new Date().toISOString(),
+      })
       .in('id', toUpdateIds);
     if (error) throw error;
   }

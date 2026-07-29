@@ -69,6 +69,8 @@ export default function AttendanceManager({
     switch (status) {
       case 'present':
         return 'bg-green-500/20 text-green-400';
+      case 'in_progress':
+        return 'bg-amber-500/20 text-amber-400';
       case 'absent':
         return 'bg-red-500/20 text-red-400';
       case 'half-day':
@@ -134,6 +136,7 @@ export default function AttendanceManager({
 
   const STATUS_ORDER: Attendance['status'][] = [
     'present',
+    'in_progress',
     'absent',
     'half-day',
     'paid-leave',
@@ -142,6 +145,7 @@ export default function AttendanceManager({
   ];
   const STATUS_SHORT: Record<string, string> = {
     present: 'P',
+    in_progress: 'IP',
     absent: 'A',
     'half-day': 'H',
     'paid-leave': 'PL',
@@ -323,7 +327,10 @@ export default function AttendanceManager({
                           record.status,
                         )}`}
                       >
-                        {record.status.replace('-', ' ')}
+                        {record.status.replace(/[-_]/g, ' ')}
+                        {record.status === 'half-day' && record.half_day_period
+                          ? ` (${record.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
+                          : ''}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -435,7 +442,7 @@ export default function AttendanceManager({
               <div key={s} className='flex items-center gap-1.5'>
                 <span className={`h-3 w-3 rounded-md inline-block ${getStatusColor(s)}`}></span>
                 <span className='text-gray-300'>
-                  {STATUS_SHORT[s]} = {s.replace('-', ' ')}
+                  {STATUS_SHORT[s]} = {s.replace(/[-_]/g, ' ')}
                 </span>
               </div>
             ))}
@@ -492,7 +499,10 @@ export default function AttendanceManager({
                                 record.status,
                               )}`}
                             >
-                              {record.status.replace('-', ' ')}
+                              {record.status.replace(/[-_]/g, ' ')}
+                              {record.status === 'half-day' && record.half_day_period
+                                ? ` (${record.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
+                                : ''}
                             </span>
                           </div>
                         );

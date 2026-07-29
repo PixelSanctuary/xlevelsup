@@ -184,6 +184,7 @@ export default function AttendanceRecordsTable({
   // Attendance Styling Maps
   const statusStyles: Record<string, { bg: string; border: string; text: string; label: string }> = {
     present: { bg: 'bg-green-500/10 hover:bg-green-500/20', border: 'border-green-500/30', text: 'text-green-400', label: 'Present' },
+    in_progress: { bg: 'bg-amber-500/10 hover:bg-amber-500/20', border: 'border-amber-500/30', text: 'text-amber-400', label: 'In Progress' },
     absent: { bg: 'bg-red-500/10 hover:bg-red-500/20', border: 'border-red-500/30', text: 'text-red-400', label: 'Absent' },
     'half-day': { bg: 'bg-yellow-500/10 hover:bg-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-400', label: 'Half-Day' },
     'paid-leave': { bg: 'bg-blue-500/10 hover:bg-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-400', label: 'Paid Leave' },
@@ -191,11 +192,16 @@ export default function AttendanceRecordsTable({
     holiday: { bg: 'bg-cyan-500/10 hover:bg-cyan-500/20', border: 'border-cyan-500/30', text: 'text-cyan-400', label: 'Holiday' },
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, halfDayPeriod?: string | null) => {
     const style = statusStyles[status] || statusStyles.present;
+    const periodSuffix =
+      status === 'half-day' && halfDayPeriod
+        ? ` (${halfDayPeriod === 'first_half' ? 'MORNING' : 'AFTERNOON'})`
+        : '';
     return (
       <span className={`px-2 py-1 rounded text-xs font-medium ${style.bg} ${style.text}`}>
         {style.label.toUpperCase()}
+        {periodSuffix}
       </span>
     );
   };
@@ -349,6 +355,9 @@ export default function AttendanceRecordsTable({
                       {hasRecord && style.label && (
                         <div className={`text-[8px] font-bold truncate leading-none ${style.text}`}>
                           {style.label}
+                          {record?.status === 'half-day' && record.half_day_period
+                            ? ` (${record.half_day_period === 'first_half' ? 'AM' : 'PM'})`
+                            : ''}
                         </div>
                       )}
 
@@ -469,6 +478,10 @@ export default function AttendanceRecordsTable({
               <span className='text-gray-300'>Present</span>
             </div>
             <div className='flex items-center gap-1.5'>
+              <span className='h-3 w-3 rounded-md bg-amber-500/20 border border-amber-500/30 inline-block'></span>
+              <span className='text-gray-300'>In Progress</span>
+            </div>
+            <div className='flex items-center gap-1.5'>
               <span className='h-3 w-3 rounded-md bg-red-500/20 border border-red-500/30 inline-block'></span>
               <span className='text-gray-300'>Absent</span>
             </div>
@@ -520,6 +533,16 @@ export default function AttendanceRecordsTable({
               }`}
             >
               Present ({records.filter((r) => r.status === 'present').length})
+            </button>
+            <button
+              onClick={() => setTableFilter('in_progress')}
+              className={`px-3 py-1 text-xs rounded transition-colors ${
+                tableFilter === 'in_progress'
+                  ? 'bg-amber-600 text-white font-semibold'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              In Progress ({records.filter((r) => r.status === 'in_progress').length})
             </button>
             <button
               onClick={() => setTableFilter('absent')}
@@ -582,7 +605,7 @@ export default function AttendanceRecordsTable({
                       <React.Fragment key={record.id}>
                         <tr className='border-b border-gray-800/50 hover:bg-gray-900/30 transition-colors'>
                           <td className='py-3 px-2'>{formatDateSafe(record.date)}</td>
-                          <td className='py-3 px-2'>{getStatusBadge(record.status)}</td>
+                          <td className='py-3 px-2'>{getStatusBadge(record.status, record.half_day_period)}</td>
                           <td className='py-3 px-2 text-xs'>
                             {dayLogs.length === 0 ? (
                               <span className='text-gray-500'>-</span>

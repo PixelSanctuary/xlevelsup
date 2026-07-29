@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS attendance (
     id SERIAL PRIMARY KEY,
     employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     date DATE NOT NULL,
-    status VARCHAR(20) NOT NULL CHECK(status IN ('present', 'absent', 'half-day', 'paid-leave', 'unpaid-leave', 'holiday')),
+    status VARCHAR(20) NOT NULL CHECK(status IN ('present', 'absent', 'half-day', 'paid-leave', 'unpaid-leave', 'holiday', 'in_progress')),
+    half_day_period VARCHAR(12) CHECK(half_day_period IN ('first_half', 'second_half')), -- which half status='half-day' refers to
     overtime_hours NUMERIC(4, 2) DEFAULT 0, -- Overtime hours for earned leave calculation
     notes TEXT,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,

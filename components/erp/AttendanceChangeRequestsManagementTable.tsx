@@ -69,9 +69,12 @@ export default function AttendanceChangeRequestsManagementTable({
     );
   };
 
-  const getAttendanceStatusBadge = (status: string) => (
+  const getAttendanceStatusBadge = (status: string, halfDayPeriod?: string | null) => (
     <span className="px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300">
-      {status.replace('-', ' ').toUpperCase()}
+      {status.replace(/[-_]/g, ' ').toUpperCase()}
+      {status === 'half-day' && halfDayPeriod
+        ? ` (${halfDayPeriod === 'first_half' ? 'MORNING' : 'AFTERNOON'})`
+        : ''}
     </span>
   );
 
@@ -206,12 +209,12 @@ export default function AttendanceChangeRequestsManagementTable({
                               <>
                                 {getAttendanceStatusBadge(request.current_status)}
                                 <span className="text-gray-500">→</span>
-                                {getAttendanceStatusBadge(request.requested_status)}
+                                {getAttendanceStatusBadge(request.requested_status, request.half_day_period)}
                               </>
                             ) : (
                               <>
                                 <span className="text-xs text-gray-500">New:</span>
-                                {getAttendanceStatusBadge(request.requested_status)}
+                                {getAttendanceStatusBadge(request.requested_status, request.half_day_period)}
                               </>
                             )}
                             {request.requested_status === 'paid-leave' && request.leave_type && (
@@ -341,12 +344,12 @@ export default function AttendanceChangeRequestsManagementTable({
                         <>
                           {getAttendanceStatusBadge(selectedRequest.current_status)}
                           <span>→</span>
-                          {getAttendanceStatusBadge(selectedRequest.requested_status)}
+                          {getAttendanceStatusBadge(selectedRequest.requested_status, selectedRequest.half_day_period)}
                         </>
                       ) : (
                         <>
                           <span className="text-xs text-gray-500">New Record:</span>
-                          {getAttendanceStatusBadge(selectedRequest.requested_status)}
+                          {getAttendanceStatusBadge(selectedRequest.requested_status, selectedRequest.half_day_period)}
                         </>
                       )}
                       {selectedRequest.requested_status === 'paid-leave' &&

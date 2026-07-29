@@ -30,6 +30,7 @@ const attendanceChangeRequestSchema = z
       'unpaid-leave',
       'holiday',
     ]),
+    half_day_period: z.enum(['first_half', 'second_half']).nullable().optional(),
     leave_type: z
       .enum([
         'sick',
@@ -73,7 +74,11 @@ const attendanceChangeRequestSchema = z
       message: 'Leave type is required when requesting paid leave',
       path: ['leave_type'],
     },
-  );
+  )
+  .refine((data) => data.requested_status !== 'half-day' || !!data.half_day_period, {
+    message: 'Select which half of the day when requesting half-day status',
+    path: ['half_day_period'],
+  });
 
 /** New typed regularisation request schema */
 const regularisationSchema = z
@@ -187,6 +192,7 @@ export async function createAttendanceChangeRequestAction(
     const rawData = {
       request_date: formData.get('request_date') as string,
       requested_status: formData.get('requested_status') as string,
+      half_day_period: (formData.get('half_day_period') as string) || null,
       leave_type: (formData.get('leave_type') as string) || null,
       clock_out_time: (formData.get('clock_out_time') as string) || null,
       reason: formData.get('reason') as string,
@@ -210,6 +216,7 @@ export async function createAttendanceChangeRequestAction(
     await createAttendanceChangeRequest(employeeId, {
       request_date: validated.request_date,
       requested_status: validated.requested_status as AttendanceStatus,
+      half_day_period: validated.half_day_period,
       leave_type: validated.leave_type,
       clock_out_time: validated.clock_out_time,
       reason: validated.reason,

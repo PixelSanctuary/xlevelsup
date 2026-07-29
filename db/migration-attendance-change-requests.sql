@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS attendance_change_requests (
     request_date DATE NOT NULL, -- the date for which attendance change is requested
     current_status VARCHAR(20), -- current status if changing existing record
     requested_status VARCHAR(20) NOT NULL CHECK(requested_status IN ('present', 'absent', 'half-day', 'paid-leave', 'unpaid-leave', 'holiday')),
+    half_day_period VARCHAR(12) CHECK(half_day_period IN ('first_half', 'second_half')), -- which half requested_status='half-day' refers to
     reason TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
     reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,

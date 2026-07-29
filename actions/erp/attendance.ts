@@ -24,22 +24,36 @@ const ATTENDANCE_STATUSES = [
   'holiday',
 ] as const;
 
-const attendanceSchema = z.object({
-  employee_id: z.number().int().positive(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: z.enum(ATTENDANCE_STATUSES),
-  overtime_hours: z.number().min(0).max(24).optional().nullable(),
-  notes: z.string().optional(),
-});
+const HALF_DAY_PERIODS = ['first_half', 'second_half'] as const;
 
-const bulkAttendanceSchema = z.object({
-  employee_ids: z.array(z.number().int().positive()).min(1, 'Select at least one employee'),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: z.enum(ATTENDANCE_STATUSES),
-  notes: z.string().nullable().optional(),
-  skip_weekends: z.boolean().optional().default(true),
-});
+const attendanceSchema = z
+  .object({
+    employee_id: z.number().int().positive(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    status: z.enum(ATTENDANCE_STATUSES),
+    half_day_period: z.enum(HALF_DAY_PERIODS).nullable().optional(),
+    overtime_hours: z.number().min(0).max(24).optional().nullable(),
+    notes: z.string().optional(),
+  })
+  .refine((data) => data.status !== 'half-day' || !!data.half_day_period, {
+    message: 'Select which half of the day for a half-day status',
+    path: ['half_day_period'],
+  });
+
+const bulkAttendanceSchema = z
+  .object({
+    employee_ids: z.array(z.number().int().positive()).min(1, 'Select at least one employee'),
+    start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    status: z.enum(ATTENDANCE_STATUSES),
+    half_day_period: z.enum(HALF_DAY_PERIODS).nullable().optional(),
+    notes: z.string().nullable().optional(),
+    skip_weekends: z.boolean().optional().default(true),
+  })
+  .refine((data) => data.status !== 'half-day' || !!data.half_day_period, {
+    message: 'Select which half of the day for a half-day status',
+    path: ['half_day_period'],
+  });
 
 export interface AttendanceActionResult {
   success: boolean;
@@ -91,6 +105,7 @@ export async function saveAttendanceAction(
       employee_id: parseInt(formData.get('employee_id') as string),
       date: formData.get('date') as string,
       status: formData.get('status') as string,
+      half_day_period: (formData.get('half_day_period') as string) || null,
       overtime_hours: overtimeValue ? parseFloat(overtimeValue) : null,
       notes: (formData.get('notes') as string) || undefined,
     };
@@ -141,6 +156,7 @@ export async function bulkUpdateAttendanceAction(input: {
   startDate: string;
   endDate: string;
   status: Attendance['status'];
+  halfDayPeriod?: Attendance['half_day_period'];
   notes?: string | null;
   skipWeekends?: boolean;
 }): Promise<BulkAttendanceActionResult> {
@@ -152,6 +168,7 @@ export async function bulkUpdateAttendanceAction(input: {
       start_date: input.startDate,
       end_date: input.endDate,
       status: input.status,
+      half_day_period: input.halfDayPeriod || null,
       notes: input.notes,
       skip_weekends: input.skipWeekends,
     });
@@ -188,6 +205,7 @@ export async function bulkUpdateAttendanceAction(input: {
       validated.status,
       validated.notes || null,
       session.userId,
+      validated.half_day_period || null,
     );
 
     revalidatePath('/erp/attendance');

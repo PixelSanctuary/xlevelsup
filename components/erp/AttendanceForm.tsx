@@ -31,6 +31,9 @@ export default function AttendanceForm({
   employees,
   onSuccess,
 }: AttendanceFormProps) {
+  const [status, setStatus] = useState('');
+  const [halfDayPeriod, setHalfDayPeriod] = useState('');
+
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
       return await saveAttendanceAction(formData);
@@ -99,6 +102,11 @@ export default function AttendanceForm({
           id='status'
           name='status'
           required
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            if (e.target.value !== 'half-day') setHalfDayPeriod('');
+          }}
           className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
         >
           <option value=''>Select Status</option>
@@ -110,6 +118,26 @@ export default function AttendanceForm({
           <option value='holiday'>Holiday</option>
         </select>
       </div>
+
+      {status === 'half-day' && (
+        <div>
+          <label htmlFor='half_day_period' className='block text-sm font-medium mb-2'>
+            Which Half? *
+          </label>
+          <select
+            id='half_day_period'
+            name='half_day_period'
+            required
+            value={halfDayPeriod}
+            onChange={(e) => setHalfDayPeriod(e.target.value)}
+            className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+          >
+            <option value=''>Select half</option>
+            <option value='first_half'>First Half (Morning)</option>
+            <option value='second_half'>Second Half (Afternoon)</option>
+          </select>
+        </div>
+      )}
 
       <div>
         <label

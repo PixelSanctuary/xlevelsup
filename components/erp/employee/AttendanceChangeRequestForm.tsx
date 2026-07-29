@@ -31,6 +31,7 @@ export default function AttendanceChangeRequestForm({
   initialCurrentStatus,
 }: AttendanceChangeRequestFormProps) {
   const [requestedStatus, setRequestedStatus] = useState(initialIsMissed ? 'present' : '');
+  const [halfDayPeriod, setHalfDayPeriod] = useState('');
   const [selectedDate, setSelectedDate] = useState(initialDate || '');
   const [clockInTime, setClockInTime] = useState('');
   const [clockOutTime, setClockOutTime] = useState('');
@@ -108,6 +109,7 @@ export default function AttendanceChangeRequestForm({
       if (form) {
         form.reset();
         setRequestedStatus('');
+        setHalfDayPeriod('');
         setSelectedDate('');
         setClockInTime('');
         setClockOutTime('');
@@ -165,7 +167,10 @@ export default function AttendanceChangeRequestForm({
           name='requested_status'
           required
           value={requestedStatus}
-          onChange={(e) => setRequestedStatus(e.target.value)}
+          onChange={(e) => {
+            setRequestedStatus(e.target.value);
+            if (e.target.value !== 'half-day') setHalfDayPeriod('');
+          }}
           className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
         >
           <option value=''>Select status</option>
@@ -177,6 +182,27 @@ export default function AttendanceChangeRequestForm({
           <option value='holiday'>Holiday</option>
         </select>
       </div>
+
+      {/* Half Day Period (only shown when Half Day is selected) */}
+      {requestedStatus === 'half-day' && (
+        <div>
+          <label htmlFor='half_day_period' className='block text-sm font-medium mb-2'>
+            Which Half? <span className='text-red-500'>*</span>
+          </label>
+          <select
+            id='half_day_period'
+            name='half_day_period'
+            required
+            value={halfDayPeriod}
+            onChange={(e) => setHalfDayPeriod(e.target.value)}
+            className='w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--cyan)] text-white'
+          >
+            <option value=''>Select half</option>
+            <option value='first_half'>First Half (Morning)</option>
+            <option value='second_half'>Second Half (Afternoon)</option>
+          </select>
+        </div>
+      )}
 
       {/* Leave Type (only shown when Paid Leave is selected) */}
       {requestedStatus === 'paid-leave' && (

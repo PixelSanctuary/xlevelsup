@@ -27,6 +27,7 @@ export default function BulkAttendanceForm({ employees, onSuccess }: BulkAttenda
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [status, setStatus] = useState<AttendanceStatus | ''>('');
+  const [halfDayPeriod, setHalfDayPeriod] = useState<'' | 'first_half' | 'second_half'>('');
   const [skipWeekends, setSkipWeekends] = useState(true);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +68,13 @@ export default function BulkAttendanceForm({ employees, onSuccess }: BulkAttenda
   };
 
   const canSubmit =
-    selectedIds.size > 0 && !!startDate && !!endDate && !!status && endDate >= startDate && !isSubmitting;
+    selectedIds.size > 0 &&
+    !!startDate &&
+    !!endDate &&
+    !!status &&
+    (status !== 'half-day' || !!halfDayPeriod) &&
+    endDate >= startDate &&
+    !isSubmitting;
 
   const handleSubmit = async () => {
     if (!canSubmit || !status) return;
@@ -79,6 +86,7 @@ export default function BulkAttendanceForm({ employees, onSuccess }: BulkAttenda
         startDate,
         endDate,
         status,
+        halfDayPeriod: status === 'half-day' ? halfDayPeriod || null : null,
         notes: notes.trim() || null,
         skipWeekends,
       });
@@ -177,7 +185,11 @@ export default function BulkAttendanceForm({ employees, onSuccess }: BulkAttenda
           id='bulk_status'
           required
           value={status}
-          onChange={(e) => setStatus(e.target.value as AttendanceStatus)}
+          onChange={(e) => {
+            const next = e.target.value as AttendanceStatus;
+            setStatus(next);
+            if (next !== 'half-day') setHalfDayPeriod('');
+          }}
           className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
         >
           <option value=''>Select Status</option>
@@ -188,6 +200,27 @@ export default function BulkAttendanceForm({ employees, onSuccess }: BulkAttenda
           ))}
         </select>
       </div>
+
+      {/* Half-day period — required whenever the bulk status is Half Day */}
+      {status === 'half-day' && (
+        <div>
+          <label htmlFor='bulk_half_day_period' className='block text-sm font-medium mb-2'>
+            Which Half? <span className='text-red-500'>*</span>
+          </label>
+          <select
+            id='bulk_half_day_period'
+            required
+            value={halfDayPeriod}
+            onChange={(e) => setHalfDayPeriod(e.target.value as 'first_half' | 'second_half')}
+            className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+          >
+            <option value=''>Select half</option>
+            <option value='first_half'>First Half (Morning)</option>
+            <option value='second_half'>Second Half (Afternoon)</option>
+          </select>
+          <p className='text-xs text-gray-500 mt-1'>Applied to every record in this bulk update.</p>
+        </div>
+      )}
 
       {/* Notes */}
       <div>
