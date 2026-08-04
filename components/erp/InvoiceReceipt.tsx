@@ -162,6 +162,10 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           print-color-adjust: exact;
         }
 
+        .invoice-a5__bill-to {
+          margin-top: 4mm;
+        }
+
         .invoice-a5__bill-to-label {
           font-size: 8px;
           font-weight: 700;
@@ -187,6 +191,7 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           width: 100%;
           border-collapse: collapse;
           margin-top: 6mm;
+          table-layout: fixed;
         }
 
         .invoice-a5 th {
@@ -201,8 +206,8 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           border-right: 1px solid #111;
         }
 
-        .invoice-a5 th:last-child {
-          border-right: none;
+        .invoice-a5 th:first-child {
+          border-left: 1px solid #111;
         }
 
         .invoice-a5 td {
@@ -220,6 +225,7 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
         .invoice-a5__num {
           text-align: right;
           white-space: nowrap;
+          width: 22mm;
         }
 
         .invoice-a5__totals {
@@ -325,11 +331,14 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
       </div>
 
       {/* Bill to */}
-      <div>
+      <div className="invoice-a5__bill-to">
         <div className="invoice-a5__bill-to-label">Bill To</div>
         <div className="invoice-a5__bill-to-name">{receipt.clientName}</div>
         {receipt.clientPhone && (
           <div className="invoice-a5__bill-to-detail">{receipt.clientPhone}</div>
+        )}
+        {receipt.clientGstin && (
+          <div className="invoice-a5__bill-to-detail">GSTIN: {receipt.clientGstin}</div>
         )}
       </div>
 
@@ -338,9 +347,7 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
         <thead>
           <tr>
             <th className="invoice-a5__col-idx">#</th>
-            <th>Description</th>
-            <th className="invoice-a5__num">Qty</th>
-            <th className="invoice-a5__num">Unit Price</th>
+            <th>Service</th>
             <th className="invoice-a5__num">Amount</th>
           </tr>
         </thead>
@@ -349,10 +356,6 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
             <tr key={index}>
               <td className="invoice-a5__col-idx">{index + 1}</td>
               <td>{item.description}</td>
-              <td className="invoice-a5__num">{item.quantity}</td>
-              <td className="invoice-a5__num">
-                {currencyFormatter.format(item.quantity > 0 ? item.lineTotal / item.quantity : 0)}
-              </td>
               <td className="invoice-a5__num">{currencyFormatter.format(item.lineTotal)}</td>
             </tr>
           ))}
