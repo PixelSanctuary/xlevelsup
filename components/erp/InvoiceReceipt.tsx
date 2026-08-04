@@ -198,6 +198,11 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           padding: 2mm 1.5mm;
           border-top: 1px solid #111;
           border-bottom: 1.5px solid #111;
+          border-right: 1px solid #111;
+        }
+
+        .invoice-a5 th:last-child {
+          border-right: none;
         }
 
         .invoice-a5 td {
