@@ -401,7 +401,7 @@ async function handleRegularisationApproval(
   // Ensure there is an attendance record for the date (status = present)
   const { data: existingAtt } = await supabase
     .from('attendance')
-    .select('id')
+    .select('id, status')
     .eq('employee_id', employeeId)
     .eq('date', date)
     .maybeSingle();
@@ -414,6 +414,16 @@ async function handleRegularisationApproval(
       notes: `Auto-created via regularisation request #${request.id}`,
       created_by: reviewerId,
     });
+    if (error) throw error;
+  } else if (existingAtt.status === 'in_progress') {
+    const { error } = await supabase
+      .from('attendance')
+      .update({
+        status: 'present',
+        notes: `Auto-completed via regularisation request #${request.id}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingAtt.id);
     if (error) throw error;
   }
 

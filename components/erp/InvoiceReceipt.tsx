@@ -19,7 +19,7 @@ interface InvoiceReceiptProps {
 function buildWatermark(text: string): string {
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'>
     <text x='0' y='120' font-family='Arial, sans-serif' font-size='18' font-weight='700'
-      fill='rgba(176,38,255,0.05)' transform='rotate(-30 110 110)'>${text}</text>
+      fill='rgba(0,0,0,0.05)' transform='rotate(-30 110 110)'>${text}</text>
   </svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
@@ -36,6 +36,8 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
         @media screen {
           .invoice-a5 {
             box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 4px 16px rgba(0, 0, 0, 0.35);
+            border-radius: 2mm;
+            overflow: hidden;
           }
         }
 
@@ -91,16 +93,39 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
         .invoice-a5__header {
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          gap: 8mm;
+          align-items: flex-start;
+          gap: 6mm;
           padding-bottom: 4mm;
           border-bottom: 2px solid #111;
         }
 
+        .invoice-a5__tax-label {
+          font-size: 8px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: #00c2d1;
+        }
+
         .invoice-a5__logo {
-          height: 7mm;
+          height: 6mm;
           width: auto;
           display: block;
+          margin-top: 1.5mm;
+        }
+
+        .invoice-a5__legal-name {
+          margin-top: 1.5mm;
+          font-size: 9.5px;
+          font-weight: 700;
+          color: #111;
+        }
+
+        .invoice-a5__store-detail {
+          margin-top: 0.6mm;
+          font-size: 8px;
+          line-height: 1.3;
+          color: #555;
         }
 
         .invoice-a5__invoice-meta {
@@ -108,26 +133,54 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           flex-shrink: 0;
         }
 
-        .invoice-a5__invoice-title {
+        .invoice-a5__invoice-number {
           font-size: 13px;
           font-weight: 700;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.03em;
+          color: #111;
         }
 
         .invoice-a5__invoice-meta-row {
           margin-top: 1.3mm;
-          font-size: 9px;
-          color: #333;
+          font-size: 8.5px;
+          color: #555;
         }
 
-        .invoice-a5__invoice-meta-row strong {
+        .invoice-a5__badge {
+          display: inline-block;
+          margin-top: 2.5mm;
+          padding: 1mm 2.5mm;
+          border-radius: 3mm;
+          background: rgba(0, 194, 209, 0.1);
+          border: 0.5px solid rgba(0, 194, 209, 0.5);
+          color: #00949f;
+          font-size: 7.5px;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .invoice-a5__bill-to-label {
+          font-size: 8px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #888;
+        }
+
+        .invoice-a5__bill-to-name {
+          margin-top: 1.3mm;
+          font-size: 11px;
+          font-weight: 700;
           color: #111;
         }
 
-        .invoice-a5__invoice-meta-divider {
-          margin-top: 1.8mm;
-          padding-top: 1.8mm;
-          border-top: 0.5px solid #ccc;
+        .invoice-a5__bill-to-detail {
+          margin-top: 0.8mm;
+          font-size: 9px;
+          color: #444;
         }
 
         .invoice-a5 table {
@@ -143,10 +196,8 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           letter-spacing: 0.03em;
           color: #333;
           padding: 2mm 1.5mm;
+          border-top: 1px solid #111;
           border-bottom: 1.5px solid #111;
-          background: linear-gradient(90deg, rgba(0, 240, 255, 0.08), rgba(176, 38, 255, 0.08));
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
         }
 
         .invoice-a5 td {
@@ -180,18 +231,28 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           color: #333;
         }
 
+        /* Gradient "border" via a two-layer nested box (outer gradient fill,
+           inner white inset) rather than border-image/background-clip —
+           the html2canvas PDF-download path renders plain nested
+           backgrounds reliably but has spotty support for those. */
         .invoice-a5__grand-total {
           margin-top: 1.5mm;
-          padding: 2.5mm 3mm;
+          padding: 1.5px;
           background: linear-gradient(90deg, #00c2d1, #b026ff);
-          color: #fff;
+          border-radius: 1mm;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
+        }
+
+        .invoice-a5__grand-total-inner {
+          padding: 2.5mm 3mm;
+          background: #fff;
+          color: #111;
           font-weight: 700;
           font-size: 11.5px;
           display: flex;
           justify-content: space-between;
-          border-radius: 1mm;
+          border-radius: calc(1mm - 1.5px);
         }
 
         .invoice-a5__notes {
@@ -207,18 +268,7 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           text-align: center;
         }
 
-        .invoice-a5__footer-address {
-          font-size: 8.5px;
-          color: #444;
-          line-height: 1.6;
-        }
-
-        .invoice-a5__footer-address strong {
-          color: #111;
-        }
-
-        .invoice-a5__footer-thanks {
-          margin-top: 2mm;
+        .invoice-a5__footer-note {
           font-size: 8px;
           color: #888;
           font-style: italic;
@@ -227,15 +277,35 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
 
       {/* Header */}
       <div className="invoice-a5__header">
-        {/* eslint-disable-next-line @next/next/no-img-element -- rendered into html2canvas/print snapshots, not a normal page image */}
-        <img src="/xlevelsup_logo.svg" alt={storeConfig.name} className="invoice-a5__logo" />
+        <div>
+          <div className="invoice-a5__tax-label">Tax Invoice</div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- rendered into html2canvas/print snapshots, not a normal page image */}
+          <img
+            src="/xlevelsup_logo_footer.svg"
+            alt={storeConfig.name}
+            className="invoice-a5__logo"
+          />
+          {storeConfig.legalName && (
+            <div className="invoice-a5__legal-name">{storeConfig.legalName}</div>
+          )}
+          {[storeConfig.addressLine1, storeConfig.addressLine2, storeConfig.cityStatePincode]
+            .filter(Boolean)
+            .map((line, index) => (
+              <div key={index} className="invoice-a5__store-detail">
+                {line}
+              </div>
+            ))}
+          {storeConfig.gstin && (
+            <div className="invoice-a5__store-detail">GSTIN: {storeConfig.gstin}</div>
+          )}
+          {storeConfig.phone && (
+            <div className="invoice-a5__store-detail">Ph: {storeConfig.phone}</div>
+          )}
+        </div>
         <div className="invoice-a5__invoice-meta">
-          <div className="invoice-a5__invoice-title">TAX INVOICE</div>
+          <div className="invoice-a5__invoice-number">{receipt.invoiceNumber}</div>
           <div className="invoice-a5__invoice-meta-row">
-            Invoice #: <strong>{receipt.invoiceNumber}</strong>
-          </div>
-          <div className="invoice-a5__invoice-meta-row">Order #: {receipt.orderNumber}</div>
-          <div className="invoice-a5__invoice-meta-row">
+            Issued{' '}
             {new Date(receipt.createdAt).toLocaleString('en-IN', {
               day: '2-digit',
               month: 'short',
@@ -244,16 +314,18 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
               minute: '2-digit',
             })}
           </div>
-          <div className="invoice-a5__invoice-meta-row">
-            Payment: <strong>{receipt.paymentMethod.replace('_', ' ')}</strong>
-          </div>
-          <div className="invoice-a5__invoice-meta-row invoice-a5__invoice-meta-divider">
-            Customer: <strong>{receipt.clientName}</strong>
-          </div>
-          {receipt.clientPhone && (
-            <div className="invoice-a5__invoice-meta-row">Phone: {receipt.clientPhone}</div>
-          )}
+          <div className="invoice-a5__invoice-meta-row">Order #: {receipt.orderNumber}</div>
+          <span className="invoice-a5__badge">{receipt.paymentMethod.replace('_', ' ')}</span>
         </div>
+      </div>
+
+      {/* Bill to */}
+      <div>
+        <div className="invoice-a5__bill-to-label">Bill To</div>
+        <div className="invoice-a5__bill-to-name">{receipt.clientName}</div>
+        {receipt.clientPhone && (
+          <div className="invoice-a5__bill-to-detail">{receipt.clientPhone}</div>
+        )}
       </div>
 
       {/* Line items */}
@@ -263,7 +335,7 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
             <th className="invoice-a5__col-idx">#</th>
             <th>Description</th>
             <th className="invoice-a5__num">Qty</th>
-            <th className="invoice-a5__num">Rate</th>
+            <th className="invoice-a5__num">Unit Price</th>
             <th className="invoice-a5__num">Amount</th>
           </tr>
         </thead>
@@ -289,39 +361,26 @@ export default function InvoiceReceipt({ receipt, forBulkPrint = false }: Invoic
           <span>{currencyFormatter.format(receipt.taxableValue)}</span>
         </div>
         <div className="invoice-a5__totals-row">
-          <span>CGST ({CGST_RATE_LABEL})</span>
+          <span>CGST @ {CGST_RATE_LABEL}</span>
           <span>{currencyFormatter.format(receipt.cgstAmount)}</span>
         </div>
         <div className="invoice-a5__totals-row">
-          <span>SGST ({SGST_RATE_LABEL})</span>
+          <span>SGST @ {SGST_RATE_LABEL}</span>
           <span>{currencyFormatter.format(receipt.sgstAmount)}</span>
         </div>
         <div className="invoice-a5__grand-total">
-          <span>Grand Total</span>
-          <span>{currencyFormatter.format(receipt.grandTotal)}</span>
+          <div className="invoice-a5__grand-total-inner">
+            <span>Grand Total</span>
+            <span>{currencyFormatter.format(receipt.grandTotal)}</span>
+          </div>
         </div>
       </div>
 
       {/* Footer — pushed to the bottom of the A5 page via margin-top: auto,
           so short invoices still look like a full page, not a floating card. */}
       <div className="invoice-a5__footer">
-        <div className="invoice-a5__footer-address">
-          <strong>{storeConfig.name}</strong>
-          {[storeConfig.addressLine1, storeConfig.addressLine2, storeConfig.cityStatePincode]
-            .filter(Boolean)
-            .map((line, index) => (
-              <span key={index}>
-                {' · '}
-                {line}
-              </span>
-            ))}
-          <br />
-          {storeConfig.gstin && <span>GSTIN: {storeConfig.gstin}</span>}
-          {storeConfig.gstin && storeConfig.phone && <span> · </span>}
-          {storeConfig.phone && <span>Ph: {storeConfig.phone}</span>}
-        </div>
-        <div className="invoice-a5__footer-thanks">
-          Thank you for your business! · This is a computer-generated invoice.
+        <div className="invoice-a5__footer-note">
+          This is a computer-generated invoice and does not require a signature.
         </div>
       </div>
     </div>
