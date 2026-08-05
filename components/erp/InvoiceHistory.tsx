@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Table, TableRow, TableCell } from './Table';
 import MonthPicker from './MonthPicker';
 import InvoiceReceiptModal from './InvoiceReceiptModal';
+import SensitiveValue from './SensitiveValue';
 import { getOrderReceiptAction } from '@/actions/erp/billing';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import type { Order, ReceiptData } from '@/types/billing';
@@ -88,7 +89,7 @@ export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryP
         <span className="text-sm text-gray-400">
           {filteredOrders.length} invoice{filteredOrders.length !== 1 ? 's' : ''}
         </span>
-        <span className="text-sm font-semibold text-cyan">{formatCurrency(totalForMonth)}</span>
+        <span className="text-sm font-semibold text-cyan"><SensitiveValue>{formatCurrency(totalForMonth)}</SensitiveValue></span>
       </div>
 
       <div className="glass rounded-lg overflow-hidden">
@@ -107,7 +108,7 @@ export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryP
                   {PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method}
                 </TableCell>
                 <TableCell className="font-semibold whitespace-nowrap">
-                  {formatCurrency(order.grand_total)}
+                  <SensitiveValue>{formatCurrency(order.grand_total)}</SensitiveValue>
                 </TableCell>
                 <TableCell>
                   <button

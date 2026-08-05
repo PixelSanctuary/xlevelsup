@@ -9,6 +9,7 @@ import {
 import TimeTrackingOverview from '@/components/erp/admin/TimeTrackingOverview';
 import { formatCurrency, formatDuration } from '@/lib/erp/utils';
 import Link from 'next/link';
+import SensitiveValue from '@/components/erp/SensitiveValue';
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -82,7 +83,7 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div className='text-3xl font-bold text-cyan mb-1'>
-              {formatCurrency(stats.current_month_payroll_total)}
+              <SensitiveValue>{formatCurrency(stats.current_month_payroll_total)}</SensitiveValue>
             </div>
             <div className='text-sm text-gray-400'>Current Month Payable</div>
             {stats.unpaid_payroll_count > 0 && (
@@ -104,7 +105,7 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div className='text-3xl font-bold text-purple mb-1'>
-              {formatCurrency(stats.current_month_expenses_total)}
+              <SensitiveValue>{formatCurrency(stats.current_month_expenses_total)}</SensitiveValue>
             </div>
             <div className='text-sm text-gray-400'>Current Month Total</div>
           </Link>
@@ -215,7 +216,7 @@ export default async function DashboardPage() {
               <div className='text-2xl'>⏳</div>
             </div>
             <div className='text-2xl font-bold text-orange-400 mb-2'>
-              {formatCurrency(stats.pending_expenses_total)}
+              <SensitiveValue>{formatCurrency(stats.pending_expenses_total)}</SensitiveValue>
             </div>
             <div className='text-sm text-gray-400'>
               {stats.pending_expenses_count} expenses awaiting approval

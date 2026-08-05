@@ -8,6 +8,7 @@ import Modal from '@/components/ui/Modal';
 import ExpenseForm from './ExpenseForm';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
+import SensitiveValue from './SensitiveValue';
 import type { Expense, Employee } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -223,19 +224,19 @@ export default function ExpenseManager({
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Total Amount</p>
           <p className='text-2xl font-bold text-white mt-1'>
-            {formatCurrency(totalAmount)}
+            <SensitiveValue>{formatCurrency(totalAmount)}</SensitiveValue>
           </p>
         </div>
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Pending</p>
           <p className='text-2xl font-bold text-yellow-400 mt-1'>
-            {formatCurrency(pendingAmount)}
+            <SensitiveValue>{formatCurrency(pendingAmount)}</SensitiveValue>
           </p>
         </div>
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>To Reimburse</p>
           <p className='text-2xl font-bold text-orange-400 mt-1'>
-            {formatCurrency(reimbursableAmount)}
+            <SensitiveValue>{formatCurrency(reimbursableAmount)}</SensitiveValue>
           </p>
         </div>
         <div className='glass p-4 rounded-lg'>
@@ -265,7 +266,7 @@ export default function ExpenseManager({
                     <div className='flex justify-between items-center text-xs mb-1.5'>
                       <span className='font-medium text-gray-300'>{item.category}</span>
                       <span className='text-gray-400 font-semibold'>
-                        {formatCurrency(item.amount)} ({item.percentage.toFixed(0)}%)
+                        <SensitiveValue>{formatCurrency(item.amount)}</SensitiveValue> ({item.percentage.toFixed(0)}%)
                       </span>
                     </div>
                     <div className='w-full h-2 bg-[#0c0c0e]/85 rounded-full overflow-hidden border border-gray-800/80'>
@@ -320,7 +321,7 @@ export default function ExpenseManager({
                   })()}
                 </svg>
                 <div className='absolute flex flex-col items-center justify-center'>
-                  <span className='text-lg font-bold text-white'>{formatCurrency(totalAmount).split('.')[0]}</span>
+                  <span className='text-lg font-bold text-white'><SensitiveValue>{formatCurrency(totalAmount).split('.')[0]}</SensitiveValue></span>
                   <span className='text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1'>Total Spent</span>
                 </div>
               </div>
@@ -361,7 +362,7 @@ export default function ExpenseManager({
                 </TableCell>
                 <TableCell>
                   <div className='font-medium text-white'>
-                    {formatCurrency(expense.amount)}
+                    <SensitiveValue>{formatCurrency(expense.amount)}</SensitiveValue>
                   </div>
                   <div className='text-xs text-gray-500'>
                     {expense.payment_mode}

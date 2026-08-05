@@ -45,6 +45,12 @@ export default function FinanceForm({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [amount, setAmount] = useState('');
 
+  // Salary expenses are always paid from the company's main operating
+  // account, never an invoice-backed vendor bill — so once this account
+  // exists we skip asking for an account/invoice number and just use it.
+  const isSalaryExpense = type === 'expense' && selectedCategory === 'Salary';
+  const companyAccount = accounts.find((acc) => acc.name === 'Company Account');
+
 
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
@@ -348,26 +354,32 @@ export default function FinanceForm({
           </>
         )}
 
-        {/* Account selector — expense outflow: money leaves this account */}
-        {type === 'expense' && accounts.length > 0 && (
-          <div>
-            <label htmlFor='account_id' className='block text-sm font-medium mb-2'>
-              Paid From Account
-            </label>
-            <select
-              id='account_id'
-              name='account_id'
-              defaultValue={defaultAccountId ?? ''}
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            >
-              <option value=''>— No Account (either this or Paid By required) —</option>
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Account selector — expense outflow: money leaves this account.
+            Salary is always paid from the Company Account, so that case
+            skips the picker entirely and submits it silently instead. */}
+        {isSalaryExpense && companyAccount ? (
+          <input type='hidden' name='account_id' value={companyAccount.id} />
+        ) : (
+          type === 'expense' && accounts.length > 0 && (
+            <div>
+              <label htmlFor='account_id' className='block text-sm font-medium mb-2'>
+                Paid From Account
+              </label>
+              <select
+                id='account_id'
+                name='account_id'
+                defaultValue={defaultAccountId ?? ''}
+                className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+              >
+                <option value=''>— No Account (either this or Paid By required) —</option>
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )
         )}
 
         {/* Account selector — investment inflow: money is received INTO this account */}
@@ -396,18 +408,21 @@ export default function FinanceForm({
         {/* Reference/Invoice Codes */}
         {(type === 'income' || type === 'expense') && (
           <>
-            <div>
-              <label htmlFor='invoice_number' className='block text-sm font-medium mb-2'>
-                Invoice Number
-              </label>
-              <input
-                type='text'
-                id='invoice_number'
-                name='invoice_number'
-                placeholder='INV-2026-001'
-                className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-              />
-            </div>
+            {/* Salary is an internal payout, not a vendor bill — no invoice number applies */}
+            {!isSalaryExpense && (
+              <div>
+                <label htmlFor='invoice_number' className='block text-sm font-medium mb-2'>
+                  Invoice Number
+                </label>
+                <input
+                  type='text'
+                  id='invoice_number'
+                  name='invoice_number'
+                  placeholder='INV-2026-001'
+                  className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+                />
+              </div>
+            )}
             <div>
               <label htmlFor='reference_number' className='block text-sm font-medium mb-2'>
                 Reference Number (TXN)

@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
+import SensitiveValue from './SensitiveValue';
 import type { PayrollWithEmployee } from '@/types/erp';
 import { formatCurrency, getMonthName } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -14,6 +15,7 @@ import {
   generatePayrollAction,
   updatePayrollStatusAction,
   deletePayrollAction,
+  deletePayrollForMonthAction,
 } from '@/actions/erp/payroll';
 
 interface PayrollManagerProps {
@@ -29,10 +31,13 @@ export default function PayrollManager({
 }: PayrollManagerProps) {
   const router = useRouter();
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showDeleteMonthModal, setShowDeleteMonthModal] = useState(false);
   const [month, setMonth] = useState(initialMonth);
   const [status, setStatus] = useState(initialStatus || '');
   const [generating, setGenerating] = useState(false);
   const [generateMonth, setGenerateMonth] = useState(initialMonth);
+  const [deleteMonthValue, setDeleteMonthValue] = useState(initialMonth);
+  const [deletingMonth, setDeletingMonth] = useState(false);
 
   const applyFilters = (overrides?: Partial<{ month: string; status: string }>) => {
     const next = { month, status, ...overrides };
@@ -90,6 +95,37 @@ export default function PayrollManager({
     }
   };
 
+  const handleDeleteMonth = async () => {
+    if (!deleteMonthValue) {
+      toast.error('Select a month');
+      return;
+    }
+
+    const monthLabel = getMonthName(deleteMonthValue);
+    if (
+      !confirm(
+        `This will permanently delete ALL payroll records (draft, approved, and paid) for ${monthLabel}. Any linked financial ledger entries will be unlinked, not deleted. This cannot be undone. Continue?`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingMonth(true);
+    const result = await deletePayrollForMonthAction(deleteMonthValue);
+    setDeletingMonth(false);
+
+    if (result.success) {
+      toast.success(
+        `Deleted ${result.payroll.deletedCount} payroll record(s) for ${monthLabel}. You can now generate fresh ones for this month.`,
+        { duration: 4000 },
+      );
+      setShowDeleteMonthModal(false);
+      router.refresh();
+    } else {
+      toast.error(result.error || 'Failed to delete payroll for month');
+    }
+  };
+
   const totalPayable = payroll.reduce((sum, p) => sum + p.net_salary, 0);
 
   return (
@@ -104,16 +140,28 @@ export default function PayrollManager({
             Generate and manage employee salaries
           </p>
         </div>
-        <Button
-          variant='primary'
-          onClick={() => {
-            setGenerateMonth(month);
-            setShowGenerateModal(true);
-          }}
-          className='whitespace-nowrap'
-        >
-          Generate Payroll
-        </Button>
+        <div className='flex items-center gap-3'>
+          <Button
+            variant='secondary'
+            onClick={() => {
+              setDeleteMonthValue(month);
+              setShowDeleteMonthModal(true);
+            }}
+            className='whitespace-nowrap !text-red-400 !outline-red-500/60 hover:!outline-red-400'
+          >
+            Delete Month
+          </Button>
+          <Button
+            variant='primary'
+            onClick={() => {
+              setGenerateMonth(month);
+              setShowGenerateModal(true);
+            }}
+            className='whitespace-nowrap'
+          >
+            Generate Payroll
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -158,7 +206,7 @@ export default function PayrollManager({
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Total Payable</p>
           <p className='text-2xl font-bold text-cyan mt-1'>
-            {formatCurrency(totalPayable)}
+            <SensitiveValue>{formatCurrency(totalPayable)}</SensitiveValue>
           </p>
         </div>
         <div className='glass p-4 rounded-lg'>
@@ -219,16 +267,18 @@ export default function PayrollManager({
                     {record.paid_leave_days}
                   </div>
                 </TableCell>
-                <TableCell>{formatCurrency(record.gross_salary)}</TableCell>
+                <TableCell><SensitiveValue>{formatCurrency(record.gross_salary)}</SensitiveValue></TableCell>
                 <TableCell>
                   <div className='font-medium text-white'>
-                    {formatCurrency(record.net_salary)}
+                    <SensitiveValue>{formatCurrency(record.net_salary)}</SensitiveValue>
                   </div>
                   {(record.bonus > 0 || record.deduction > 0) && (
                     <div className='text-xs text-gray-500'>
-                      {record.bonus > 0 && `+${formatCurrency(record.bonus)} `}
-                      {record.deduction > 0 &&
-                        `-${formatCurrency(record.deduction)}`}
+                      <SensitiveValue>
+                        {record.bonus > 0 && `+${formatCurrency(record.bonus)} `}
+                        {record.deduction > 0 &&
+                          `-${formatCurrency(record.deduction)}`}
+                      </SensitiveValue>
                     </div>
                   )}
                 </TableCell>
@@ -285,6 +335,44 @@ export default function PayrollManager({
             {generating ? 'Generating...' : 'Generate Payroll'}
           </Button>
         </form>
+      </Modal>
+
+      {/* Delete Month Modal */}
+      <Modal
+        isOpen={showDeleteMonthModal}
+        onClose={() => setShowDeleteMonthModal(false)}
+        title='Delete Payroll for Month'
+      >
+        <div className='space-y-4'>
+          <p className='text-gray-300'>
+            This permanently deletes every payroll record for the selected
+            month, regardless of status (draft, approved, or paid). Use this
+            when you need to re-run payroll for a month from scratch — after
+            deleting, use <span className='font-medium text-white'>Generate Payroll</span>{' '}
+            to create fresh records for the same month.
+          </p>
+          <div className='bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300'>
+            This cannot be undone. Financial ledger entries linked to deleted
+            records will be unlinked, not deleted.
+          </div>
+          <div>
+            <label className='block text-sm font-medium mb-2'>Month *</label>
+            <MonthPicker
+              value={deleteMonthValue}
+              onChange={setDeleteMonthValue}
+              required
+            />
+          </div>
+          <Button
+            type='button'
+            variant='secondary'
+            className='w-full !text-red-400 !outline-red-500/60 hover:!outline-red-400'
+            disabled={deletingMonth}
+            onClick={handleDeleteMonth}
+          >
+            {deletingMonth ? 'Deleting...' : 'Delete Payroll for Month'}
+          </Button>
+        </div>
       </Modal>
     </div>
   );

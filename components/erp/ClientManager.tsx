@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import { EditIcon, DeleteIcon } from './ActionIcons';
+import SensitiveValue from './SensitiveValue';
 import { createClientAction, updateClientAction, deleteClientAction } from '@/actions/erp/clients';
 import type { Client, ClientFinancialSummary } from '@/types/erp';
 
@@ -255,10 +256,10 @@ export default function ClientManager({ clients, summaries, userRole }: ClientMa
                   </TableCell>
                   <TableCell className='text-xs'>{client.gstin || '—'}</TableCell>
                   <TableCell className='font-semibold text-green-400 whitespace-nowrap'>
-                    {formatCurrency(summary?.totalIncome ?? 0)}
+                    <SensitiveValue>{formatCurrency(summary?.totalIncome ?? 0)}</SensitiveValue>
                   </TableCell>
                   <TableCell className='text-yellow-400 whitespace-nowrap'>
-                    {summary?.pendingIncome ? formatCurrency(summary.pendingIncome) : '—'}
+                    {summary?.pendingIncome ? <SensitiveValue>{formatCurrency(summary.pendingIncome)}</SensitiveValue> : '—'}
                   </TableCell>
                   <TableCell className='text-xs whitespace-nowrap'>
                     {summary?.lastTransactionDate ? formatDisplayDate(summary.lastTransactionDate) : '—'}

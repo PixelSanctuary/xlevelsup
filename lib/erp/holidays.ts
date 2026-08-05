@@ -4,7 +4,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import { getWorkingDaysInMonth } from '@/lib/erp/utils';
+import { getWorkingDaysInMonth, getTodayIST } from '@/lib/erp/utils';
 
 export interface CompanyHoliday {
   id: number;
@@ -163,6 +163,46 @@ export async function deleteHoliday(id: number): Promise<void> {
     .delete()
     .eq('id', id);
   if (error) throw error;
+}
+
+export type FestivalKey = 'diwali' | 'christmas' | 'bakrid';
+
+/** Keyword -> festival theme, matched against company_holidays.name. */
+const FESTIVAL_KEYWORDS: Array<{ key: FestivalKey; pattern: RegExp }> = [
+  { key: 'diwali', pattern: /diwali|deepavali/i },
+  { key: 'christmas', pattern: /christmas/i },
+  { key: 'bakrid', pattern: /bakrid|eid/i },
+];
+
+/**
+ * If today (IST) is a company holiday whose name matches one of the
+ * celebrated festivals (Diwali, Christmas, Bakrid/Eid), return it with its
+ * festival theme key so the UI can pick matching colors/copy. Other
+ * holiday types (e.g. Independence Day) intentionally return null here —
+ * they're still valid company_holidays rows, just not "wish banner" days.
+ */
+export async function getTodaysFestival(): Promise<
+  (CompanyHoliday & { festivalKey: FestivalKey }) | null
+> {
+  const { year, month, day } = getTodayIST();
+  const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  const { data, error } = await supabase
+    .from('company_holidays')
+    .select('*')
+    .eq('date', dateStr)
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Error fetching today\'s festival:', error);
+    return null;
+  }
+
+  for (const holiday of (data as CompanyHoliday[]) || []) {
+    const match = FESTIVAL_KEYWORDS.find((f) => f.pattern.test(holiday.name));
+    if (match) return { ...holiday, festivalKey: match.key };
+  }
+  return null;
 }
 
 /**

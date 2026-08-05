@@ -6,6 +6,7 @@ import { supabaseServer as supabase } from '@/lib/supabase-server';
 import type { Employee, EmployeeFormData } from '@/types/erp';
 import bcrypt from 'bcryptjs';
 import { handleDatabaseError, isNotFoundError } from './error-handler';
+import { getTodayIST } from './utils';
 
 /**
  * Generate a default password for new employees
@@ -185,6 +186,7 @@ export async function createEmployee(
         department: data.department,
         employment_type: data.employment_type,
         joining_date: data.joining_date,
+        date_of_birth: data.date_of_birth || null,
         end_date: data.end_date || null,
         salary_type: data.salary_type,
         monthly_salary: data.monthly_salary,
@@ -241,6 +243,7 @@ export async function updateEmployee(
         department: data.department,
         employment_type: data.employment_type,
         joining_date: data.joining_date,
+        date_of_birth: data.date_of_birth || null,
         end_date: data.end_date || null,
         salary_type: data.salary_type,
         monthly_salary: data.monthly_salary,
@@ -324,4 +327,64 @@ export async function getEmployeeCountByStatus(): Promise<{
     active: activeData?.length || 0,
     inactive: inactiveData?.length || 0,
   };
+}
+
+export interface CelebrationEmployee {
+  id: number;
+  name: string;
+  /** Completed years of service — only set for work-anniversary entries. */
+  years?: number;
+}
+
+/**
+ * Active employees whose date_of_birth's month/day matches today (IST).
+ * Parses the DATE-only string with getUTC* accessors so a system clock in
+ * any timezone doesn't shift the day (a plain `new Date(dob).getMonth()`
+ * would, since DATE strings parse as UTC midnight).
+ * Silently returns [] for employees with no date_of_birth on file, which
+ * covers deployments that haven't run the migration adding the column yet.
+ */
+export async function getTodaysBirthdays(): Promise<CelebrationEmployee[]> {
+  try {
+    const employees = await getAllEmployees({ status: 'active' });
+    const { month, day } = getTodayIST();
+
+    return employees
+      .filter((emp) => {
+        if (!emp.date_of_birth) return false;
+        const dob = new Date(emp.date_of_birth);
+        return dob.getUTCMonth() + 1 === month && dob.getUTCDate() === day;
+      })
+      .map((emp) => ({ id: emp.id, name: emp.name }));
+  } catch (error) {
+    console.error('Error fetching birthdays:', error);
+    return [];
+  }
+}
+
+/**
+ * Active employees whose joining_date's month/day matches today (IST) and
+ * who have completed at least one full year — so the join date itself
+ * doesn't get celebrated as a "0-year anniversary".
+ */
+export async function getTodaysWorkAnniversaries(): Promise<CelebrationEmployee[]> {
+  try {
+    const employees = await getAllEmployees({ status: 'active' });
+    const { year, month, day } = getTodayIST();
+
+    const results: CelebrationEmployee[] = [];
+    for (const emp of employees) {
+      if (!emp.joining_date) continue;
+      const joined = new Date(emp.joining_date);
+      const years = year - joined.getUTCFullYear();
+      if (years < 1 || joined.getUTCMonth() + 1 !== month || joined.getUTCDate() !== day) {
+        continue;
+      }
+      results.push({ id: emp.id, name: emp.name, years });
+    }
+    return results;
+  } catch (error) {
+    console.error('Error fetching work anniversaries:', error);
+    return [];
+  }
 }

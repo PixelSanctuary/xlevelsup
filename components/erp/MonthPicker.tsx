@@ -110,7 +110,7 @@ export default function MonthPicker({
         ref={buttonRef}
         type='button'
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white text-left focus:outline-none focus:border-cyan transition-colors flex items-center justify-between gap-2 ${className}`}
+        className={`w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white text-left focus:outline-none focus:border-[var(--cyan)] transition-colors flex items-center justify-between gap-2 ${className}`}
       >
         <span className={parsed ? '' : 'text-gray-500'}>{displayLabel}</span>
         <svg className='w-4 h-4 text-gray-400 shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth='2'>
@@ -155,7 +155,7 @@ export default function MonthPicker({
                     onClick={() => handleSelectMonth(m)}
                     className={`text-xs py-2 rounded-lg transition-colors ${
                       isSelected
-                        ? 'bg-cyan text-black font-semibold'
+                        ? 'bg-[var(--cyan)] text-black font-semibold'
                         : 'text-gray-300 hover:bg-gray-800'
                     }`}
                   >

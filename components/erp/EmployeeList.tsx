@@ -10,6 +10,7 @@ import EmployeeForm from './EmployeeForm';
 import CareerChangeModal from './CareerChangeModal';
 import EmployeeCareerHistoryComponent from './EmployeeCareerHistory';
 import { EditIcon, DeleteIcon } from './ActionIcons';
+import SensitiveValue from './SensitiveValue';
 import type { Employee, EmployeeCareerHistory, EmployeeCareerChangeType } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -239,7 +240,7 @@ export default function EmployeeList({
                     <div className='font-medium text-white'>
                       {employee.monthly_salary !== null &&
                       employee.monthly_salary !== undefined
-                        ? formatCurrency(employee.monthly_salary)
+                        ? <SensitiveValue>{formatCurrency(employee.monthly_salary)}</SensitiveValue>
                         : 'Unpaid'}
                     </div>
                     <div className='text-xs text-gray-500 capitalize'>

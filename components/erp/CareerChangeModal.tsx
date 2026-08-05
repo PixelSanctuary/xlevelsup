@@ -19,6 +19,7 @@ import type {
 } from '@/types/erp';
 import { CAREER_CHANGE_TYPE_LABELS } from '@/types/erp';
 import { formatCurrency } from '@/lib/erp/utils';
+import SensitiveValue from './SensitiveValue';
 
 interface CareerChangeModalProps {
   isOpen: boolean;
@@ -209,7 +210,7 @@ export default function CareerChangeModal({
               </span>
               {employee.monthly_salary != null && (
                 <span className="text-xs text-gray-400">
-                  {formatCurrency(employee.monthly_salary)}/mo
+                  <SensitiveValue>{formatCurrency(employee.monthly_salary)}/mo</SensitiveValue>
                 </span>
               )}
             </div>
@@ -267,7 +268,7 @@ export default function CareerChangeModal({
                       <p className="text-xs text-gray-500">Salary</p>
                       <p className="text-sm text-gray-300">
                         {employee.monthly_salary != null
-                          ? formatCurrency(employee.monthly_salary)
+                          ? <SensitiveValue>{formatCurrency(employee.monthly_salary)}</SensitiveValue>
                           : 'Unpaid'}
                       </p>
                     </div>

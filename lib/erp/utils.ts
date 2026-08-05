@@ -39,6 +39,25 @@ export function formatDate(date: Date): string {
 }
 
 /**
+ * "Today" in IST (Asia/Kolkata) as { year, month, day }, month/day 1-indexed.
+ * The server's runtime timezone isn't guaranteed to be IST, so this must be
+ * used (not `new Date().toISOString()`, which is UTC) anywhere "today"
+ * needs to match what an India-based user considers today — e.g. matching
+ * a birthday/anniversary date or today's festival.
+ */
+export function getTodayIST(): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return { year: get('year'), month: get('month'), day: get('day') };
+}
+
+/**
  * Get current month in YYYY-MM format
  */
 export function getCurrentMonth(): string {

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import ERPSidebar from './ERPSidebar';
 import ERPHeader from './ERPHeader';
 import QuickActionFAB from './QuickActionFAB';
+import { SensitiveDataProvider } from './SensitiveDataContext';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { m as motion, AnimatePresence } from 'framer-motion';
@@ -154,6 +155,7 @@ export default function ERPLayoutWrapper({
   };
 
   return (
+    <SensitiveDataProvider>
     <div className="min-h-screen bg-[#060608] text-gray-200 antialiased flex">
       {/* Desktop Persistent Sidebar */}
       <ERPSidebar
@@ -322,5 +324,6 @@ export default function ERPLayoutWrapper({
         )}
       </AnimatePresence>
     </div>
+    </SensitiveDataProvider>
   );
 }

@@ -10,6 +10,7 @@ import {
   updatePayrollAdjustments,
   updatePayrollStatus,
   deletePayroll,
+  deletePayrollByMonth,
 } from '@/lib/erp/payroll';
 import { getAllEmployees } from '@/lib/erp/employees';
 import { getMonthlyAttendanceSummary } from '@/lib/erp/attendance';
@@ -208,5 +209,28 @@ export async function deletePayrollAction(
   } catch (error) {
     console.error('Delete payroll error:', error);
     return { success: false, error: 'Failed to delete payroll' };
+  }
+}
+
+/**
+ * Delete all payroll records for a month (so it can be regenerated from scratch)
+ */
+export async function deletePayrollForMonthAction(
+  month: string,
+): Promise<PayrollActionResult> {
+  try {
+    await requireRole(['admin', 'hr']);
+
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return { success: false, error: 'Invalid month format' };
+    }
+
+    const deletedCount = await deletePayrollByMonth(month);
+
+    revalidatePath('/erp/payroll');
+    return { success: true, payroll: { deletedCount } };
+  } catch (error) {
+    console.error('Delete payroll for month error:', error);
+    return { success: false, error: 'Failed to delete payroll for month' };
   }
 }

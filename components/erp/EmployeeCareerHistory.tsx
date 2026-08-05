@@ -13,6 +13,7 @@ import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import { applyCareerChangeAction, cancelCareerChangeAction } from '@/actions/erp/employee-career';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import SensitiveValue from './SensitiveValue';
 
 interface EmployeeCareerHistoryProps {
   history: EmployeeCareerHistory[];
@@ -51,15 +52,19 @@ function ValueChange({
   prev,
   next,
   format,
+  sensitive,
 }: {
   label: string;
   prev?: string | number | null;
   next?: string | number | null;
   format?: (v: string | number) => string;
+  /** Wraps the rendered values in SensitiveValue — use for salary/financial fields */
+  sensitive?: boolean;
 }) {
   if (!prev && !next) return null;
 
   const fmt = (v: string | number) => (format ? format(v) : String(v));
+  const render = (node: React.ReactNode) => (sensitive ? <SensitiveValue>{node}</SensitiveValue> : node);
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -67,18 +72,18 @@ function ValueChange({
       <div className="flex items-center gap-2 flex-wrap">
         {prev && (
           <span className="text-xs bg-red-500/10 text-red-300 px-2 py-0.5 rounded line-through">
-            {fmt(prev)}
+            {render(fmt(prev))}
           </span>
         )}
         {prev && next && <span className="text-gray-600 text-xs">→</span>}
         {next && (
           <span className="text-xs bg-green-500/10 text-green-300 px-2 py-0.5 rounded font-medium">
-            {fmt(next)}
+            {render(fmt(next))}
           </span>
         )}
         {!prev && next && (
           <span className="text-xs bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded font-medium">
-            {fmt(next)}
+            {render(fmt(next))}
           </span>
         )}
       </div>
@@ -203,6 +208,7 @@ export default function EmployeeCareerHistoryComponent({
                   prev={entry.previous_salary ?? undefined}
                   next={entry.new_salary ?? undefined}
                   format={(v) => formatCurrency(Number(v))}
+                  sensitive
                 />
               </div>
 

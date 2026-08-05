@@ -9,6 +9,7 @@ import FinanceForm from './FinanceForm';
 import CompanyAccountManager from './CompanyAccountManager';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
+import SensitiveValue from './SensitiveValue';
 import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -224,14 +225,14 @@ export default function FinanceManager({
           <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
             <div className='glass p-5 rounded-lg'>
               <p className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>Total Revenue Inflow</p>
-              <p className='text-2xl font-bold text-white mt-1.5'>{formatCurrency(summary.totalIncome)}</p>
+              <p className='text-2xl font-bold text-white mt-1.5'><SensitiveValue>{formatCurrency(summary.totalIncome)}</SensitiveValue></p>
               <div className='h-1 w-full bg-green-500/10 rounded-full overflow-hidden mt-3'>
                 <div className='h-full bg-green-500 w-[65%]' />
               </div>
             </div>
             <div className='glass p-5 rounded-lg'>
               <p className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>Total Expenditures</p>
-              <p className='text-2xl font-bold text-red-400 mt-1.5'>{formatCurrency(summary.totalExpenses)}</p>
+              <p className='text-2xl font-bold text-red-400 mt-1.5'><SensitiveValue>{formatCurrency(summary.totalExpenses)}</SensitiveValue></p>
               <div className='h-1 w-full bg-red-500/10 rounded-full overflow-hidden mt-3'>
                 <div className='h-full bg-red-400 w-[45%]' />
               </div>
@@ -239,7 +240,7 @@ export default function FinanceManager({
             <div className='glass p-5 rounded-lg'>
               <p className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>Net Margin Balance</p>
               <p className={`text-2xl font-bold mt-1.5 ${summary.netBalance >= 0 ? 'text-cyan' : 'text-orange-400'}`}>
-                {formatCurrency(summary.netBalance)}
+                <SensitiveValue>{formatCurrency(summary.netBalance)}</SensitiveValue>
               </p>
               <div className='h-1 w-full bg-cyan/10 rounded-full overflow-hidden mt-3'>
                 <div className='h-full bg-cyan w-[80%]' />
@@ -251,17 +252,17 @@ export default function FinanceManager({
           <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
             <div className='glass p-5 rounded-lg border-l-4 border-purple'>
               <p className='text-sm text-gray-400 font-medium'>Milestone Income</p>
-              <p className='text-2xl font-bold text-white mt-1'>{formatCurrency(summary.clientIncome)}</p>
+              <p className='text-2xl font-bold text-white mt-1'><SensitiveValue>{formatCurrency(summary.clientIncome)}</SensitiveValue></p>
               <p className='text-xs text-gray-500 mt-1.5'>Revenue generated from client project milestones</p>
             </div>
             <div className='glass p-5 rounded-lg border-l-4 border-blue-500'>
               <p className='text-sm text-gray-400 font-medium'>Founder Investments</p>
-              <p className='text-2xl font-bold text-white mt-1'>{formatCurrency(summary.investments)}</p>
+              <p className='text-2xl font-bold text-white mt-1'><SensitiveValue>{formatCurrency(summary.investments)}</SensitiveValue></p>
               <p className='text-xs text-gray-500 mt-1.5'>Capital injection/partners business reserves</p>
             </div>
             <div className='glass p-5 rounded-lg border-l-4 border-red-500'>
               <p className='text-sm text-gray-400 font-medium'>Payroll Outflow</p>
-              <p className='text-2xl font-bold text-white mt-1'>{formatCurrency(summary.payrollOutflow)}</p>
+              <p className='text-2xl font-bold text-white mt-1'><SensitiveValue>{formatCurrency(summary.payrollOutflow)}</SensitiveValue></p>
               <p className='text-xs text-gray-500 mt-1.5'>Total salary expenditures disbursed</p>
             </div>
           </div>
@@ -270,12 +271,12 @@ export default function FinanceManager({
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
             <div className='glass p-5 rounded-lg bg-gradient-to-br from-dark-900 to-green-950/20 border border-green-900/20'>
               <p className='text-sm text-green-400 font-semibold uppercase tracking-wider'>Revenue (This Month)</p>
-              <p className='text-3xl font-bold text-white mt-2'>{formatCurrency(summary.thisMonthIncome)}</p>
+              <p className='text-3xl font-bold text-white mt-2'><SensitiveValue>{formatCurrency(summary.thisMonthIncome)}</SensitiveValue></p>
               <p className='text-xs text-gray-400 mt-2'>Total standard earnings generated during the current month</p>
             </div>
             <div className='glass p-5 rounded-lg bg-gradient-to-br from-dark-900 to-red-950/20 border border-red-900/20'>
               <p className='text-sm text-red-400 font-semibold uppercase tracking-wider'>Outflows (This Month)</p>
-              <p className='text-3xl font-bold text-white mt-2'>{formatCurrency(summary.thisMonthExpenses)}</p>
+              <p className='text-3xl font-bold text-white mt-2'><SensitiveValue>{formatCurrency(summary.thisMonthExpenses)}</SensitiveValue></p>
               <p className='text-xs text-gray-400 mt-2'>Total company expenditures processed during the current month</p>
             </div>
           </div>
@@ -447,7 +448,7 @@ export default function FinanceManager({
                         {entry.approval_status || entry.payment_status || 'completed'}
                       </span>
                     </TableCell>
-                    <TableCell className='font-bold text-white whitespace-nowrap'>{formatCurrency(entry.amount)}</TableCell>
+                    <TableCell className='font-bold text-white whitespace-nowrap'><SensitiveValue>{formatCurrency(entry.amount)}</SensitiveValue></TableCell>
                     <TableCell>
                       <div className='flex items-center gap-2'>
                         {userRole === 'admin' && (
@@ -505,7 +506,7 @@ export default function FinanceManager({
                         <div className='flex justify-between items-center text-xs mb-1.5'>
                           <span className='font-medium text-gray-300'>{item.category}</span>
                           <span className='text-gray-400 font-semibold'>
-                            {formatCurrency(item.amount)} ({item.percentage.toFixed(0)}%)
+                            <SensitiveValue>{formatCurrency(item.amount)}</SensitiveValue> ({item.percentage.toFixed(0)}%)
                           </span>
                         </div>
                         <div className='w-full h-2 bg-[#0c0c0e]/85 rounded-full overflow-hidden border border-gray-800/80'>
@@ -558,7 +559,7 @@ export default function FinanceManager({
                       })()}
                     </svg>
                     <div className='absolute flex flex-col items-center justify-center'>
-                      <span className='text-lg font-bold text-white'>{formatCurrency(summary.totalExpenses).split('.')[0]}</span>
+                      <span className='text-lg font-bold text-white'><SensitiveValue>{formatCurrency(summary.totalExpenses).split('.')[0]}</SensitiveValue></span>
                       <span className='text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1'>Spent</span>
                     </div>
                   </div>

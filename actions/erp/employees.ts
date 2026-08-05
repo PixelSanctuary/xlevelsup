@@ -29,6 +29,7 @@ const employeeSchema = z.object({
     'consultant',
   ]),
   joining_date: z.string().min(1, 'Joining date is required'),
+  date_of_birth: z.string().optional().nullable(),
   end_date: z.string().optional().nullable(),
   salary_type: z.enum(['monthly', 'hourly', 'contract']),
   monthly_salary: z
@@ -97,6 +98,7 @@ export async function createEmployeeAction(
       employment_type:
         (formData.get('employment_type') as string) || 'full-time',
       joining_date: formData.get('joining_date') as string,
+      date_of_birth: (formData.get('date_of_birth') as string) || null,
       end_date: (formData.get('end_date') as string) || null,
       salary_type: formData.get('salary_type') as string,
       monthly_salary: formData.get('monthly_salary')
@@ -145,6 +147,7 @@ export async function updateEmployeeAction(
       employment_type:
         (formData.get('employment_type') as string) || 'full-time',
       joining_date: formData.get('joining_date') as string,
+      date_of_birth: (formData.get('date_of_birth') as string) || null,
       end_date: (formData.get('end_date') as string) || null,
       salary_type: formData.get('salary_type') as string,
       monthly_salary: formData.get('monthly_salary')

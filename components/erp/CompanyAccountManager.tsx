@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import FinanceForm from './FinanceForm';
 import MonthPicker from './MonthPicker';
+import SensitiveValue from './SensitiveValue';
 import type { CompanyAccount, FinancialLedgerEntry, Employee, Client } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
@@ -153,7 +154,7 @@ export default function CompanyAccountManager({
                 <p
                   className={`text-xs font-semibold mt-1 ${bal.currentBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}
                 >
-                  {formatCurrency(bal.currentBalance)}
+                  <SensitiveValue>{formatCurrency(bal.currentBalance)}</SensitiveValue>
                 </p>
               ) : (
                 <p className='text-xs text-gray-500 mt-1'>{loadingBalance ? 'Loading…' : '—'}</p>
@@ -187,7 +188,7 @@ export default function CompanyAccountManager({
                   (selectedBalance?.currentBalance ?? 0) >= 0 ? 'text-cyan' : 'text-red-400'
                 }`}
               >
-                {loadingBalance ? '—' : formatCurrency(selectedBalance?.currentBalance ?? 0)}
+                {loadingBalance ? '—' : <SensitiveValue>{formatCurrency(selectedBalance?.currentBalance ?? 0)}</SensitiveValue>}
               </p>
             </div>
             <div className='glass p-5 rounded-xl border border-green-500/10'>
@@ -195,7 +196,7 @@ export default function CompanyAccountManager({
                 Total Deposits
               </p>
               <p className='text-2xl font-bold text-green-400 mt-1.5'>
-                {loadingBalance ? '—' : formatCurrency(selectedBalance?.totalInflow ?? 0)}
+                {loadingBalance ? '—' : <SensitiveValue>{formatCurrency(selectedBalance?.totalInflow ?? 0)}</SensitiveValue>}
               </p>
             </div>
             <div className='glass p-5 rounded-xl border border-red-500/10'>
@@ -203,7 +204,7 @@ export default function CompanyAccountManager({
                 Total Spent
               </p>
               <p className='text-2xl font-bold text-red-400 mt-1.5'>
-                {loadingBalance ? '—' : formatCurrency(selectedBalance?.totalOutflow ?? 0)}
+                {loadingBalance ? '—' : <SensitiveValue>{formatCurrency(selectedBalance?.totalOutflow ?? 0)}</SensitiveValue>}
               </p>
             </div>
             <div className='glass p-5 rounded-xl border border-yellow-500/10'>
@@ -211,7 +212,7 @@ export default function CompanyAccountManager({
                 Pending Outflow
               </p>
               <p className='text-2xl font-bold text-yellow-400 mt-1.5'>
-                {loadingBalance ? '—' : formatCurrency(selectedBalance?.pendingOutflow ?? 0)}
+                {loadingBalance ? '—' : <SensitiveValue>{formatCurrency(selectedBalance?.pendingOutflow ?? 0)}</SensitiveValue>}
               </p>
             </div>
           </div>
@@ -323,7 +324,7 @@ export default function CompanyAccountManager({
                     <TableCell className='font-bold text-white whitespace-nowrap'>
                       <span className={entry.direction === 'inflow' ? 'text-green-400' : 'text-red-400'}>
                         {entry.direction === 'inflow' ? '+' : '-'}
-                        {formatCurrency(entry.amount)}
+                        <SensitiveValue>{formatCurrency(entry.amount)}</SensitiveValue>
                       </span>
                     </TableCell>
                   </TableRow>

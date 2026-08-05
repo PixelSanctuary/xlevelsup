@@ -213,6 +213,21 @@ export async function deletePayroll(id: number): Promise<void> {
 }
 
 /**
+ * Delete all payroll records for a given month (e.g. to regenerate from scratch).
+ * Returns the number of records deleted.
+ */
+export async function deletePayrollByMonth(month: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('payroll')
+    .delete()
+    .eq('month', month)
+    .select('id');
+
+  if (error) throw error;
+  return (data || []).length;
+}
+
+/**
  * Get payroll statistics
  */
 export async function getPayrollStats(month?: string): Promise<{

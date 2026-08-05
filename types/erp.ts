@@ -32,6 +32,7 @@ export interface Employee {
   department: string;
   employment_type?: EmploymentType; // Optional for backward compatibility
   joining_date: string;
+  date_of_birth?: string | null; // Optional — powers birthday wish banners
   end_date?: string | null; // Optional end date for any employment type
   salary_type: SalaryType;
   monthly_salary?: number | null; // Optional for unpaid employees
@@ -166,6 +167,7 @@ export interface EmployeeFormData {
   department: string;
   employment_type: EmploymentType;
   joining_date: string;
+  date_of_birth?: string | null; // Optional — powers birthday wish banners
   end_date?: string | null; // Optional end date for any employment type
   salary_type: SalaryType;
   monthly_salary?: number | null; // Optional for unpaid employees

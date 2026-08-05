@@ -8,6 +8,7 @@ import Modal from '@/components/ui/Modal';
 import ClientFinanceForm from './ClientFinanceForm';
 import { EditIcon, DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
+import SensitiveValue from './SensitiveValue';
 import type { ClientTransaction } from '@/types/finance';
 import {
   formatCurrency,
@@ -233,14 +234,14 @@ export default function ClientFinanceManager({
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Total Income</p>
           <p className='text-2xl font-bold text-green-400 mt-1'>
-            {formatCurrency(summary.totalIncome)}
+            <SensitiveValue>{formatCurrency(summary.totalIncome)}</SensitiveValue>
           </p>
           <p className='text-xs text-gray-500 mt-1'>Total received (Full + Advances)</p>
         </div>
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Total Expense</p>
           <p className='text-2xl font-bold text-red-400 mt-1'>
-            {formatCurrency(summary.totalExpense)}
+            <SensitiveValue>{formatCurrency(summary.totalExpense)}</SensitiveValue>
           </p>
           <p className='text-xs text-gray-500 mt-1'>Completed expenses</p>
         </div>
@@ -249,14 +250,14 @@ export default function ClientFinanceManager({
           <p
             className={`text-2xl font-bold mt-1 ${summary.netProfit >= 0 ? 'text-cyan' : 'text-red-400'}`}
           >
-            {formatCurrency(summary.netProfit)}
+            <SensitiveValue>{formatCurrency(summary.netProfit)}</SensitiveValue>
           </p>
           <p className='text-xs text-gray-500 mt-1'>Income − Expense</p>
         </div>
         <div className='glass p-4 rounded-lg'>
           <p className='text-sm text-gray-400'>Pending Income</p>
           <p className='text-2xl font-bold text-yellow-400 mt-1'>
-            {formatCurrency(summary.pendingIncome)}
+            <SensitiveValue>{formatCurrency(summary.pendingIncome)}</SensitiveValue>
           </p>
           <p className='text-xs text-gray-500 mt-1'>Total pending (Pending + Balances)</p>
         </div>
@@ -275,7 +276,7 @@ export default function ClientFinanceManager({
               <div>
                 <div className='flex justify-between text-xs mb-1.5'>
                   <span className='text-gray-400'>Total Income</span>
-                  <span className='text-green-400 font-semibold'>{formatCurrency(summary.totalIncome)}</span>
+                  <span className='text-green-400 font-semibold'><SensitiveValue>{formatCurrency(summary.totalIncome)}</SensitiveValue></span>
                 </div>
                 <div className='w-full h-3 bg-gray-900 rounded-full overflow-hidden border border-gray-800/80'>
                   <div
@@ -295,7 +296,7 @@ export default function ClientFinanceManager({
               <div>
                 <div className='flex justify-between text-xs mb-1.5'>
                   <span className='text-gray-400'>Total Expense</span>
-                  <span className='text-red-400 font-semibold'>{formatCurrency(summary.totalExpense)}</span>
+                  <span className='text-red-400 font-semibold'><SensitiveValue>{formatCurrency(summary.totalExpense)}</SensitiveValue></span>
                 </div>
                 <div className='w-full h-3 bg-gray-900 rounded-full overflow-hidden border border-gray-800/80'>
                   <div
@@ -316,7 +317,7 @@ export default function ClientFinanceManager({
           <div className='flex items-center justify-between text-xs text-gray-500 mt-6 pt-4 border-t border-gray-800/80'>
             <span>Ratio: {summary.totalIncome + summary.totalExpense > 0 ? ((summary.totalIncome / (summary.totalIncome + summary.totalExpense)) * 100).toFixed(0) : 0}% Income / {summary.totalIncome + summary.totalExpense > 0 ? ((summary.totalExpense / (summary.totalIncome + summary.totalExpense)) * 100).toFixed(0) : 0}% Expense</span>
             <span className={summary.netProfit >= 0 ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>
-              Net Profit: {formatCurrency(summary.netProfit)}
+              Net Profit: <SensitiveValue>{formatCurrency(summary.netProfit)}</SensitiveValue>
             </span>
           </div>
         </div>
@@ -435,7 +436,7 @@ export default function ClientFinanceManager({
                     }`}
                   >
                     {transaction.type === 'income' ? '+' : '-'}
-                    {formatCurrency(transaction.amount)}
+                    <SensitiveValue>{formatCurrency(transaction.amount)}</SensitiveValue>
                   </div>
                   {transaction.payment_mode && (
                     <div className='text-xs text-gray-500'>
@@ -446,7 +447,7 @@ export default function ClientFinanceManager({
                 <TableCell>
                   {transaction.advance_amount ? (
                     <span className='text-blue-400 font-semibold'>
-                      {formatCurrency(transaction.advance_amount)}
+                      <SensitiveValue>{formatCurrency(transaction.advance_amount)}</SensitiveValue>
                     </span>
                   ) : (
                     <span className='text-gray-600'>—</span>
@@ -455,11 +456,11 @@ export default function ClientFinanceManager({
                 <TableCell>
                   {transaction.pending_amount != null && transaction.pending_amount > 0 ? (
                     <span className='text-orange-400 font-semibold'>
-                      {formatCurrency(transaction.pending_amount)}
+                      <SensitiveValue>{formatCurrency(transaction.pending_amount)}</SensitiveValue>
                     </span>
                   ) : transaction.payment_status === 'pending' ? (
                     <span className='text-yellow-400 font-semibold'>
-                      {formatCurrency(transaction.amount)}
+                      <SensitiveValue>{formatCurrency(transaction.amount)}</SensitiveValue>
                     </span>
                   ) : (
                     <span className='text-gray-600'>—</span>
@@ -571,24 +572,26 @@ export default function ClientFinanceManager({
               )}
               <div className="border-t border-gray-700/50 my-2 pt-2 flex justify-between text-sm">
                 <span className="text-gray-400">Total Transaction Amount:</span>
-                <span className="text-white font-bold">{formatCurrency(recordPaymentTransaction.amount)}</span>
+                <span className="text-white font-bold"><SensitiveValue>{formatCurrency(recordPaymentTransaction.amount)}</SensitiveValue></span>
               </div>
-              
+
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Already Received:</span>
                 <span className="text-green-400 font-semibold">
-                  {formatCurrency(recordPaymentTransaction.advance_amount ?? 0)}
+                  <SensitiveValue>{formatCurrency(recordPaymentTransaction.advance_amount ?? 0)}</SensitiveValue>
                 </span>
               </div>
-              
+
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Remaining Pending:</span>
                 <span className="text-orange-400 font-semibold">
-                  {formatCurrency(
-                    recordPaymentTransaction.payment_status === 'pending'
-                      ? recordPaymentTransaction.amount
-                      : (recordPaymentTransaction.pending_amount ?? 0)
-                  )}
+                  <SensitiveValue>
+                    {formatCurrency(
+                      recordPaymentTransaction.payment_status === 'pending'
+                        ? recordPaymentTransaction.amount
+                        : (recordPaymentTransaction.pending_amount ?? 0)
+                    )}
+                  </SensitiveValue>
                 </span>
               </div>
             </div>

@@ -249,6 +249,23 @@ export default function EmployeeForm({
           />
         </div>
 
+        {/* Optional date of birth field — powers birthday wish banners in the employee portal */}
+        <div>
+          <label
+            htmlFor='date_of_birth'
+            className='block text-sm font-medium mb-2'
+          >
+            Date of Birth (Optional)
+          </label>
+          <input
+            type='date'
+            id='date_of_birth'
+            name='date_of_birth'
+            defaultValue={employee?.date_of_birth || ''}
+            className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
+          />
+        </div>
+
         {/* Optional end date field */}
         <div>
           <label htmlFor='end_date' className='block text-sm font-medium mb-2'>
