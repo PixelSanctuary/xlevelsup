@@ -44,6 +44,7 @@ export default function FinanceForm({
   const today = new Date().toISOString().split('T')[0];
   const [selectedCategory, setSelectedCategory] = useState('');
   const [amount, setAmount] = useState('');
+  const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
 
   // Salary expenses are always paid from the company's main operating
   // account, never an invoice-backed vendor bill — so once this account
@@ -284,19 +285,6 @@ export default function FinanceForm({
             >
               <option value=''>— Select Investor / Source —</option>
 
-              {/* Directors & Stakeholder Accounts */}
-              {accounts.filter((a) => a.account_type === 'director' || a.account_type === 'stakeholder').length > 0 && (
-                <optgroup label='Directors & Stakeholders'>
-                  {accounts
-                    .filter((a) => a.account_type === 'director' || a.account_type === 'stakeholder')
-                    .map((acc) => (
-                      <option key={`acc-${acc.id}`} value={acc.name}>
-                        {acc.name}
-                      </option>
-                    ))}
-                </optgroup>
-              )}
-
               {/* Employees */}
               {employees.length > 0 && (
                 <optgroup label='Employees'>
@@ -350,6 +338,22 @@ export default function FinanceForm({
                 placeholder='Amazon Web Services, Office Depot, etc.'
                 className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
               />
+            </div>
+            <div>
+              <label htmlFor='receipt' className='block text-sm font-medium mb-2'>
+                Receipt (Image or PDF)
+              </label>
+              <input
+                type='file'
+                id='receipt'
+                name='receipt'
+                accept='image/*,application/pdf'
+                onChange={(e) => setReceiptFileName(e.target.files?.[0]?.name ?? null)}
+                className='w-full text-sm text-gray-400 rounded-lg bg-dark-800 border border-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:bg-gradient-to-r file:from-cyan file:to-purple file:text-white file:font-semibold file:cursor-pointer hover:file:opacity-90 transition-colors'
+              />
+              {receiptFileName && (
+                <p className='text-xs text-gray-500 mt-1.5 truncate'>Selected: {receiptFileName}</p>
+              )}
             </div>
           </>
         )}

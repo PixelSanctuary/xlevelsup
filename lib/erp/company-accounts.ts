@@ -3,7 +3,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
-import type { CompanyAccount, CompanyAccountFormData, FinancialLedgerEntry } from '@/types/erp';
+import type { CompanyAccount, FinancialLedgerEntry } from '@/types/erp';
 import { handleDatabaseError } from './error-handler';
 
 /**
@@ -127,51 +127,5 @@ export async function getAccountTransactions(
     return data || [];
   } catch (error) {
     throw handleDatabaseError(error, 'fetch account transactions');
-  }
-}
-
-/**
- * Create a new company account (admin only)
- */
-export async function createCompanyAccount(
-  data: CompanyAccountFormData,
-  userId: number,
-): Promise<CompanyAccount> {
-  try {
-    const { data: account, error } = await supabase
-      .from('company_accounts')
-      .insert({
-        ...data,
-        created_by: userId,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return account;
-  } catch (error) {
-    throw handleDatabaseError(error, 'create company account');
-  }
-}
-
-/**
- * Update an existing company account (admin only)
- */
-export async function updateCompanyAccount(
-  id: number,
-  data: Partial<CompanyAccountFormData & { is_active: boolean }>,
-): Promise<CompanyAccount> {
-  try {
-    const { data: account, error } = await supabase
-      .from('company_accounts')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return account;
-  } catch (error) {
-    throw handleDatabaseError(error, 'update company account');
   }
 }

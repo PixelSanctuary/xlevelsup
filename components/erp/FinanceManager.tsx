@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Table, TableRow, TableCell } from './Table';
 import Button from '@/components/ui/Button';
@@ -10,29 +10,18 @@ import CompanyAccountManager from './CompanyAccountManager';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
+import { StatTile, BarBreakdown, TrendChart, type BarBreakdownItem } from './charts/FinanceCharts';
 import type { FinancialLedgerEntry, Employee, CompanyAccount, Client } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import {
   deleteLedgerEntryAction,
   approveLedgerEntryAction,
+  getReceiptUrlAction,
 } from '@/actions/erp/finance';
-
-interface FinanceSummary {
-  totalIncome: number;
-  totalExpenses: number;
-  netBalance: number;
-  clientIncome: number;
-  investments: number;
-  pendingReimbursements: number;
-  payrollOutflow: number;
-  thisMonthIncome: number;
-  thisMonthExpenses: number;
-}
 
 interface FinanceManagerProps {
   initialEntries: FinancialLedgerEntry[];
-  summary: FinanceSummary;
   employees: Employee[];
   categories: string[];
   accounts: CompanyAccount[];
@@ -40,11 +29,15 @@ interface FinanceManagerProps {
   clients: Client[];
   userRole: string;
   userId: number;
+  /** Server-resolved "today" (IST) — the client initializes its default
+   * period from these rather than computing its own `new Date()`, so the
+   * default can't drift a day from what the server already fetched. */
+  defaultMonth: string;
+  defaultYear: string;
 }
 
 export default function FinanceManager({
   initialEntries,
-  summary,
   employees,
   categories,
   accounts,
@@ -52,6 +45,8 @@ export default function FinanceManager({
   clients = [],
   userRole,
   userId,
+  defaultMonth,
+  defaultYear,
 }: FinanceManagerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,25 +58,42 @@ export default function FinanceManager({
   // Ledger Filter states
   const [filterType, setFilterType] = useState(searchParams.get('type') || '');
   const [filterCategory, setFilterCategory] = useState(searchParams.get('category') || '');
-  const [filterMonth, setFilterMonth] = useState(searchParams.get('month') || '');
+  // Period defaults to the current month (see defaultMonth) so the page
+  // opens scoped to "now" rather than dumping the whole company history
+  // into every tab; an explicit ?year= switches the picker into year mode.
+  const [periodType, setPeriodType] = useState<'month' | 'year'>(searchParams.get('year') ? 'year' : 'month');
+  const [filterMonth, setFilterMonth] = useState(
+    searchParams.get('month') || (searchParams.get('year') ? '' : defaultMonth),
+  );
+  const [filterYear, setFilterYear] = useState(searchParams.get('year') || defaultYear);
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || '');
+  const [filterMode, setFilterMode] = useState(searchParams.get('mode') || '');
   const [filterPayee, setFilterPayee] = useState(searchParams.get('payee') || '');
+
+  const yearOptions = Array.from({ length: 6 }, (_, i) => String(Number(defaultYear) - i));
 
   // Apply filters to URL query params — accepts overrides so a field's
   // onChange can push its new value immediately without waiting for
-  // the (async) state update to land.
+  // the (async) state update to land. Month and year are mutually
+  // exclusive in the URL — only whichever periodType is active gets set.
   const applyFilters = (overrides?: Partial<{
     type: string;
     category: string;
+    periodType: 'month' | 'year';
     month: string;
+    year: string;
     status: string;
+    mode: string;
     payee: string;
   }>) => {
     const next = {
       type: filterType,
       category: filterCategory,
+      periodType,
       month: filterMonth,
+      year: filterYear,
       status: filterStatus,
+      mode: filterMode,
       payee: filterPayee,
       ...overrides,
     };
@@ -89,19 +101,35 @@ export default function FinanceManager({
     params.set('tab', currentTab);
     if (next.type) params.set('type', next.type);
     if (next.category) params.set('category', next.category);
-    if (next.month) params.set('month', next.month);
+    if (next.periodType === 'year') {
+      if (next.year) params.set('year', next.year);
+    } else if (next.month) {
+      params.set('month', next.month);
+    }
     if (next.status) params.set('status', next.status);
+    if (next.mode) params.set('mode', next.mode);
     if (next.payee) params.set('payee', next.payee);
     router.push(`/erp/finances?${params.toString()}`);
   };
 
+  const handlePeriodTypeChange = (type: 'month' | 'year') => {
+    setPeriodType(type);
+    applyFilters({ periodType: type });
+  };
+
+  // Resets back to the default view (current month) rather than an
+  // unbounded all-time view — a fresh company-wide dump isn't a useful
+  // "cleared" state for a finance dashboard.
   const handleClearFilters = () => {
     setFilterType('');
     setFilterCategory('');
-    setFilterMonth('');
     setFilterStatus('');
+    setFilterMode('');
     setFilterPayee('');
-    router.push(`/erp/finances?tab=${currentTab}`);
+    setPeriodType('month');
+    setFilterMonth(defaultMonth);
+    setFilterYear(defaultYear);
+    router.push(`/erp/finances?tab=${currentTab}&month=${defaultMonth}`);
   };
 
   // Debounce the free-text payee filter so it applies automatically
@@ -147,21 +175,170 @@ export default function FinanceManager({
     setShowAddModal(true);
   };
 
-  // Group ledger entries by category for expenses breakdown
-  const expensesBreakdown = initialEntries
-    .filter((e) => e.direction === 'outflow' && e.payment_status === 'completed')
-    .reduce((acc, entry) => {
-      acc[entry.category] = (acc[entry.category] || 0) + Number(entry.amount || 0);
-      return acc;
-    }, {} as Record<string, number>);
+  const [viewingReceiptId, setViewingReceiptId] = useState<number | null>(null);
 
-  const sortedBreakdown = Object.entries(expensesBreakdown)
-    .sort((a, b) => b[1] - a[1])
-    .map(([cat, amt]) => ({
-      category: cat,
-      amount: amt,
-      percentage: summary.totalExpenses > 0 ? (amt / summary.totalExpenses) * 100 : 0,
-    }));
+  const handleViewReceipt = async (entryId: number, path: string) => {
+    setViewingReceiptId(entryId);
+    try {
+      const { url } = await getReceiptUrlAction(path);
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        toast.error('Could not open receipt — it may have been removed.');
+      }
+    } finally {
+      setViewingReceiptId(null);
+    }
+  };
+
+  // For Overview/Analytics in month mode, `initialEntries` arrives already
+  // scoped to every filter except month (see app/erp/finances/page.tsx — a
+  // trend chart needs more than one month of data); month is applied here
+  // instead, client-side, so KPIs/breakdowns respect it while the trend
+  // chart can still show the full range it was fetched for. Year mode is
+  // already bounded to the selected year server-side, for every tab, so
+  // this is a no-op subset there. Both branches just prefix-match on
+  // transaction_date since 'YYYY' is itself a prefix of 'YYYY-MM-DD'.
+  const periodFilteredEntries = useMemo(() => {
+    const prefix = periodType === 'year' ? filterYear : filterMonth;
+    if (!prefix) return initialEntries;
+    return initialEntries.filter((e) => e.transaction_date.startsWith(prefix));
+  }, [initialEntries, periodType, filterMonth, filterYear]);
+
+  const stats = useMemo(() => {
+    let totalInflow = 0;
+    let totalOutflow = 0;
+    let clientIncome = 0;
+    let investments = 0;
+    let payrollOutflow = 0;
+    let pendingReimbursements = 0;
+    let pendingApprovalCount = 0;
+    let pendingApprovalAmount = 0;
+
+    const categoryExpense: Record<string, number> = {};
+    const categoryIncome: Record<string, number> = {};
+    const modeBreakdown: Record<string, number> = {};
+    const typeBreakdown: Record<string, number> = {};
+    const statusBreakdown: Record<string, number> = {};
+    const vendorTotals: Record<string, number> = {};
+    const clientTotals: Record<string, number> = {};
+
+    for (const e of periodFilteredEntries) {
+      const amt = Number(e.amount || 0);
+      const completed = e.payment_status === 'completed';
+
+      if (e.direction === 'inflow' && completed) totalInflow += amt;
+      if (e.direction === 'outflow' && (completed || e.payment_status === 'pending')) totalOutflow += amt;
+
+      if (e.transaction_type === 'income' && completed) clientIncome += amt;
+      if (e.transaction_type === 'investment' && completed) investments += amt;
+      if (e.transaction_type === 'payroll' && completed) payrollOutflow += amt;
+      if (e.transaction_type === 'reimbursement' && e.approval_status === 'pending') pendingReimbursements += amt;
+
+      if (e.approval_status === 'pending') {
+        pendingApprovalCount += 1;
+        pendingApprovalAmount += amt;
+      }
+
+      if (e.direction === 'outflow' && completed) {
+        categoryExpense[e.category] = (categoryExpense[e.category] || 0) + amt;
+        const vendorKey = e.vendor_name || e.payee_name;
+        if (vendorKey) vendorTotals[vendorKey] = (vendorTotals[vendorKey] || 0) + amt;
+      }
+      if (e.direction === 'inflow' && completed) {
+        categoryIncome[e.category] = (categoryIncome[e.category] || 0) + amt;
+        if (e.client_name) clientTotals[e.client_name] = (clientTotals[e.client_name] || 0) + amt;
+      }
+
+      if (e.payment_mode) modeBreakdown[e.payment_mode] = (modeBreakdown[e.payment_mode] || 0) + amt;
+      typeBreakdown[e.transaction_type] = (typeBreakdown[e.transaction_type] || 0) + amt;
+
+      const status = e.approval_status || e.payment_status || 'completed';
+      statusBreakdown[status] = (statusBreakdown[status] || 0) + amt;
+    }
+
+    return {
+      totalInflow,
+      totalOutflow,
+      netBalance: totalInflow - totalOutflow,
+      transactionCount: periodFilteredEntries.length,
+      avgTransactionValue: periodFilteredEntries.length
+        ? (totalInflow + totalOutflow) / periodFilteredEntries.length
+        : 0,
+      clientIncome,
+      investments,
+      payrollOutflow,
+      pendingReimbursements,
+      pendingApprovalCount,
+      pendingApprovalAmount,
+      categoryExpense,
+      categoryIncome,
+      modeBreakdown,
+      typeBreakdown,
+      statusBreakdown,
+      vendorTotals,
+      clientTotals,
+    };
+  }, [periodFilteredEntries]);
+
+  const toBarItems = (record: Record<string, number>): BarBreakdownItem[] =>
+    Object.entries(record).map(([key, value]) => ({ key, label: key, value }));
+
+  // Cash-flow trend granularity steps down with how narrow the period is:
+  // a whole year selected -> monthly bars (Jan-Dec, zero-filled); a specific
+  // month selected -> daily bars within it; no period pinned -> monthly
+  // across the last 12 months present in the full (unbounded) slice.
+  const trendData = useMemo(() => {
+    if (periodType === 'year' && filterYear) {
+      const byMonth: Record<string, { inflow: number; outflow: number }> = {};
+      for (let m = 1; m <= 12; m++) byMonth[String(m).padStart(2, '0')] = { inflow: 0, outflow: 0 };
+      for (const e of periodFilteredEntries) {
+        if (e.payment_status !== 'completed') continue;
+        const m = e.transaction_date.slice(5, 7);
+        if (!byMonth[m]) continue;
+        const amt = Number(e.amount || 0);
+        if (e.direction === 'inflow') byMonth[m].inflow += amt;
+        else byMonth[m].outflow += amt;
+      }
+      return Object.entries(byMonth).map(([m, v]) => {
+        const label = new Date(Number(filterYear), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'short' });
+        return { label, ...v };
+      });
+    }
+
+    if (filterMonth) {
+      const byDay: Record<string, { inflow: number; outflow: number }> = {};
+      for (const e of periodFilteredEntries) {
+        if (e.payment_status !== 'completed') continue;
+        const day = e.transaction_date.slice(8, 10);
+        if (!byDay[day]) byDay[day] = { inflow: 0, outflow: 0 };
+        const amt = Number(e.amount || 0);
+        if (e.direction === 'inflow') byDay[day].inflow += amt;
+        else byDay[day].outflow += amt;
+      }
+      return Object.entries(byDay)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([day, v]) => ({ label: day, ...v }));
+    }
+
+    const byMonth: Record<string, { inflow: number; outflow: number }> = {};
+    for (const e of initialEntries) {
+      if (e.payment_status !== 'completed') continue;
+      const month = e.transaction_date.slice(0, 7);
+      if (!byMonth[month]) byMonth[month] = { inflow: 0, outflow: 0 };
+      const amt = Number(e.amount || 0);
+      if (e.direction === 'inflow') byMonth[month].inflow += amt;
+      else byMonth[month].outflow += amt;
+    }
+    return Object.keys(byMonth)
+      .sort()
+      .slice(-12)
+      .map((m) => {
+        const [y, mo] = m.split('-').map(Number);
+        const label = new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        return { label, ...byMonth[m] };
+      });
+  }, [initialEntries, periodFilteredEntries, periodType, filterMonth, filterYear]);
 
   // Define tab navigation elements
   const tabs = [
@@ -173,6 +350,159 @@ export default function FinanceManager({
     { id: 'accounts', name: 'Company Accounts' },
     { id: 'reports', name: 'Analytics' },
   ];
+
+  // Shared filter row — one row above everything it scopes, reused by the
+  // Overview/Analytics tabs (which now filter too) and the table tabs.
+  const filterPanel = (
+    <div className='glass p-4 rounded-lg'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 items-end'>
+        {(currentTab === 'ledger' || currentTab === 'overview' || currentTab === 'reports') && (
+          <div>
+            <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Type</label>
+            <select
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                applyFilters({ type: e.target.value });
+              }}
+              className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+            >
+              <option value=''>All Types</option>
+              <option value='income'>Income</option>
+              <option value='expense'>Expense</option>
+              <option value='investment'>Investment</option>
+              <option value='payroll'>Payroll</option>
+              <option value='reimbursement'>Reimbursement</option>
+            </select>
+          </div>
+        )}
+        <div>
+          <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Category</label>
+          <select
+            value={filterCategory}
+            onChange={(e) => {
+              setFilterCategory(e.target.value);
+              applyFilters({ category: e.target.value });
+            }}
+            className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+          >
+            <option value=''>All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <div className='flex items-center justify-between mb-2'>
+            <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider'>Period</label>
+            <div className='flex rounded-md overflow-hidden border border-gray-700 text-[10px]'>
+              <button
+                type='button'
+                onClick={() => handlePeriodTypeChange('month')}
+                className={`px-2 py-0.5 font-semibold transition-colors ${
+                  periodType === 'month' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                Month
+              </button>
+              <button
+                type='button'
+                onClick={() => handlePeriodTypeChange('year')}
+                className={`px-2 py-0.5 font-semibold transition-colors ${
+                  periodType === 'year' ? 'bg-[var(--cyan)] text-black' : 'bg-dark-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                Year
+              </button>
+            </div>
+          </div>
+          {periodType === 'month' ? (
+            <MonthPicker
+              compact
+              value={filterMonth}
+              onChange={(next) => {
+                setFilterMonth(next);
+                applyFilters({ periodType: 'month', month: next });
+              }}
+            />
+          ) : (
+            <select
+              value={filterYear}
+              onChange={(e) => {
+                setFilterYear(e.target.value);
+                applyFilters({ periodType: 'year', year: e.target.value });
+              }}
+              className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div>
+          <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Mode</label>
+          <select
+            value={filterMode}
+            onChange={(e) => {
+              setFilterMode(e.target.value);
+              applyFilters({ mode: e.target.value });
+            }}
+            className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+          >
+            <option value=''>All Modes</option>
+            <option value='Bank Transfer'>Bank Transfer</option>
+            <option value='UPI'>UPI</option>
+            <option value='Credit Card'>Credit Card</option>
+            <option value='Debit Card'>Debit Card</option>
+            <option value='Cash'>Cash</option>
+            <option value='Cheque'>Cheque</option>
+            <option value='PayPal'>PayPal</option>
+            <option value='Stripe'>Stripe</option>
+            <option value='Other'>Other</option>
+          </select>
+        </div>
+        {currentTab !== 'income' && (
+          <div>
+            <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                applyFilters({ status: e.target.value });
+              }}
+              className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
+            >
+              <option value=''>All Statuses</option>
+              <option value='pending'>Pending</option>
+              <option value='approved'>Approved</option>
+              <option value='rejected'>Rejected</option>
+              <option value='paid'>Paid</option>
+            </select>
+          </div>
+        )}
+        <div>
+          <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Payee / Vendor</label>
+          <input
+            type='text'
+            placeholder='Search payee...'
+            value={filterPayee}
+            onChange={(e) => setFilterPayee(e.target.value)}
+            className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan placeholder-gray-500'
+          />
+        </div>
+        <div className='flex gap-2'>
+          <Button variant='secondary' onClick={handleClearFilters} className='w-full text-xs py-2!'>
+            Clear Filters
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div>
@@ -221,64 +551,74 @@ export default function FinanceManager({
       {/* Overview Dashboard Tab */}
       {currentTab === 'overview' && userRole !== 'employee' && (
         <div className='space-y-6'>
-          {/* Top general statistics cards */}
+          {filterPanel}
+
+          {/* Primary KPIs — respect every active filter */}
           <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
-            <div className='glass p-5 rounded-lg'>
-              <p className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>Total Revenue Inflow</p>
-              <p className='text-2xl font-bold text-white mt-1.5'><SensitiveValue>{formatCurrency(summary.totalIncome)}</SensitiveValue></p>
-              <div className='h-1 w-full bg-green-500/10 rounded-full overflow-hidden mt-3'>
-                <div className='h-full bg-green-500 w-[65%]' />
-              </div>
-            </div>
-            <div className='glass p-5 rounded-lg'>
-              <p className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>Total Expenditures</p>
-              <p className='text-2xl font-bold text-red-400 mt-1.5'><SensitiveValue>{formatCurrency(summary.totalExpenses)}</SensitiveValue></p>
-              <div className='h-1 w-full bg-red-500/10 rounded-full overflow-hidden mt-3'>
-                <div className='h-full bg-red-400 w-[45%]' />
-              </div>
-            </div>
-            <div className='glass p-5 rounded-lg'>
-              <p className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>Net Margin Balance</p>
-              <p className={`text-2xl font-bold mt-1.5 ${summary.netBalance >= 0 ? 'text-cyan' : 'text-orange-400'}`}>
-                <SensitiveValue>{formatCurrency(summary.netBalance)}</SensitiveValue>
-              </p>
-              <div className='h-1 w-full bg-cyan/10 rounded-full overflow-hidden mt-3'>
-                <div className='h-full bg-cyan w-[80%]' />
-              </div>
-            </div>
+            <StatTile
+              label='Total Inflow'
+              value={<SensitiveValue>{formatCurrency(stats.totalInflow)}</SensitiveValue>}
+              accentClassName='border-green-500'
+            />
+            <StatTile
+              label='Total Outflow'
+              value={<span className='text-red-400'><SensitiveValue>{formatCurrency(stats.totalOutflow)}</SensitiveValue></span>}
+              accentClassName='border-red-400'
+            />
+            <StatTile
+              label='Net Balance'
+              value={
+                <span className={stats.netBalance >= 0 ? 'text-cyan' : 'text-orange-400'}>
+                  <SensitiveValue>{formatCurrency(stats.netBalance)}</SensitiveValue>
+                </span>
+              }
+              accentClassName='border-cyan'
+            />
+            <StatTile
+              label='Transactions'
+              value={stats.transactionCount.toLocaleString('en-IN')}
+              sublabel={`Avg ${formatCurrency(stats.avgTransactionValue)} / entry`}
+              accentClassName='border-purple'
+            />
           </div>
 
-          {/* Secondary stats cards */}
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-            <div className='glass p-5 rounded-lg border-l-4 border-purple'>
-              <p className='text-sm text-gray-400 font-medium'>Milestone Income</p>
-              <p className='text-2xl font-bold text-white mt-1'><SensitiveValue>{formatCurrency(summary.clientIncome)}</SensitiveValue></p>
-              <p className='text-xs text-gray-500 mt-1.5'>Revenue generated from client project milestones</p>
-            </div>
-            <div className='glass p-5 rounded-lg border-l-4 border-blue-500'>
-              <p className='text-sm text-gray-400 font-medium'>Founder Investments</p>
-              <p className='text-2xl font-bold text-white mt-1'><SensitiveValue>{formatCurrency(summary.investments)}</SensitiveValue></p>
-              <p className='text-xs text-gray-500 mt-1.5'>Capital injection/partners business reserves</p>
-            </div>
-            <div className='glass p-5 rounded-lg border-l-4 border-red-500'>
-              <p className='text-sm text-gray-400 font-medium'>Payroll Outflow</p>
-              <p className='text-2xl font-bold text-white mt-1'><SensitiveValue>{formatCurrency(summary.payrollOutflow)}</SensitiveValue></p>
-              <p className='text-xs text-gray-500 mt-1.5'>Total salary expenditures disbursed</p>
-            </div>
+          {/* Secondary KPIs */}
+          <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+            <StatTile
+              label='Client Income'
+              value={<SensitiveValue>{formatCurrency(stats.clientIncome)}</SensitiveValue>}
+              sublabel='From project milestones'
+            />
+            <StatTile
+              label='Investments'
+              value={<SensitiveValue>{formatCurrency(stats.investments)}</SensitiveValue>}
+              sublabel='Capital injected'
+            />
+            <StatTile
+              label='Payroll Outflow'
+              value={<SensitiveValue>{formatCurrency(stats.payrollOutflow)}</SensitiveValue>}
+              sublabel='Salary disbursed'
+            />
+            <StatTile
+              label='Pending Approvals'
+              value={<span className='text-yellow-400'>{stats.pendingApprovalCount}</span>}
+              sublabel={`Worth ${formatCurrency(stats.pendingApprovalAmount)}`}
+            />
           </div>
 
-          {/* Month progress cards */}
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-            <div className='glass p-5 rounded-lg bg-gradient-to-br from-dark-900 to-green-950/20 border border-green-900/20'>
-              <p className='text-sm text-green-400 font-semibold uppercase tracking-wider'>Revenue (This Month)</p>
-              <p className='text-3xl font-bold text-white mt-2'><SensitiveValue>{formatCurrency(summary.thisMonthIncome)}</SensitiveValue></p>
-              <p className='text-xs text-gray-400 mt-2'>Total standard earnings generated during the current month</p>
-            </div>
-            <div className='glass p-5 rounded-lg bg-gradient-to-br from-dark-900 to-red-950/20 border border-red-900/20'>
-              <p className='text-sm text-red-400 font-semibold uppercase tracking-wider'>Outflows (This Month)</p>
-              <p className='text-3xl font-bold text-white mt-2'><SensitiveValue>{formatCurrency(summary.thisMonthExpenses)}</SensitiveValue></p>
-              <p className='text-xs text-gray-400 mt-2'>Total company expenditures processed during the current month</p>
-            </div>
+          {/* Cash-flow trend */}
+          <div className='glass p-6 rounded-lg'>
+            <h3 className='text-sm font-semibold text-white mb-1'>
+              {periodType === 'year' ? `Monthly Cash Flow — ${filterYear}` : filterMonth ? 'Daily Cash Flow' : 'Cash Flow Trend'}
+            </h3>
+            <p className='text-xs text-gray-500 mb-4'>
+              {periodType === 'year'
+                ? `Inflow vs outflow by month, within ${filterYear}`
+                : filterMonth
+                ? `Inflow vs outflow by day, within the selected month`
+                : `Inflow vs outflow across the last ${trendData.length} month${trendData.length === 1 ? '' : 's'} of activity`}
+            </p>
+            <TrendChart data={trendData} formatValue={formatCurrency} />
           </div>
         </div>
       )}
@@ -286,92 +626,7 @@ export default function FinanceManager({
       {/* Ledger Table & Lists Tab */}
       {(currentTab === 'ledger' || currentTab === 'income' || currentTab === 'expenses' || currentTab === 'investments') && (
         <div className='space-y-6'>
-          {/* Advanced Filter Panel */}
-          <div className='glass p-4 rounded-lg'>
-            <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end'>
-              {currentTab === 'ledger' && (
-                <div>
-                  <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Type</label>
-                  <select
-                    value={filterType}
-                    onChange={(e) => {
-                      setFilterType(e.target.value);
-                      applyFilters({ type: e.target.value });
-                    }}
-                    className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
-                  >
-                    <option value=''>All Types</option>
-                    <option value='income'>Income</option>
-                    <option value='expense'>Expense</option>
-                    <option value='investment'>Investment</option>
-                    <option value='payroll'>Payroll</option>
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Category</label>
-                <select
-                  value={filterCategory}
-                  onChange={(e) => {
-                    setFilterCategory(e.target.value);
-                    applyFilters({ category: e.target.value });
-                  }}
-                  className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
-                >
-                  <option value=''>All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Month</label>
-                <MonthPicker
-                  value={filterMonth}
-                  onChange={(next) => {
-                    setFilterMonth(next);
-                    applyFilters({ month: next });
-                  }}
-                />
-              </div>
-              {currentTab !== 'income' && (
-                <div>
-                  <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Status</label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => {
-                      setFilterStatus(e.target.value);
-                      applyFilters({ status: e.target.value });
-                    }}
-                    className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan'
-                  >
-                    <option value=''>All Statuses</option>
-                    <option value='pending'>Pending</option>
-                    <option value='approved'>Approved</option>
-                    <option value='rejected'>Rejected</option>
-                    <option value='paid'>Paid</option>
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className='block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2'>Payee / Vendor</label>
-                <input
-                  type='text'
-                  placeholder='Search payee...'
-                  value={filterPayee}
-                  onChange={(e) => setFilterPayee(e.target.value)}
-                  className='w-full px-3 py-1.5 text-sm rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan placeholder-gray-500'
-                />
-              </div>
-              <div className='flex gap-2 lg:col-span-1'>
-                <Button variant='secondary' onClick={handleClearFilters} className='w-full text-xs py-2!'>
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          </div>
+          {filterPanel}
 
           {/* Financial Ledger Data Table */}
           <div className='glass rounded-lg overflow-hidden'>
@@ -394,6 +649,7 @@ export default function FinanceManager({
                   'Mode',
                   'Status',
                   'Amount',
+                  'Receipt',
                   'Actions',
                 ]}
               >
@@ -450,6 +706,19 @@ export default function FinanceManager({
                     </TableCell>
                     <TableCell className='font-bold text-white whitespace-nowrap'><SensitiveValue>{formatCurrency(entry.amount)}</SensitiveValue></TableCell>
                     <TableCell>
+                      {entry.receipt_path ? (
+                        <button
+                          onClick={() => handleViewReceipt(entry.id, entry.receipt_path!)}
+                          disabled={viewingReceiptId === entry.id}
+                          className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-cyan/10 text-cyan border border-cyan/30 hover:bg-cyan/20 transition-colors disabled:opacity-50'
+                        >
+                          {viewingReceiptId === entry.id ? 'Opening…' : '📎 View'}
+                        </button>
+                      ) : (
+                        <span className='text-xs text-gray-600'>—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className='flex items-center gap-2'>
                         {userRole === 'admin' && (
                           <button
@@ -485,92 +754,93 @@ export default function FinanceManager({
       {/* Analytics/Reports Tab */}
       {currentTab === 'reports' && userRole !== 'employee' && (
         <div className='space-y-6'>
-          {/* Charts/SVG breakdown widgets */}
-          {sortedBreakdown.length > 0 ? (
-            <div className='glass p-6 rounded-lg select-none'>
-              <h3 className='text-sm font-semibold text-white mb-4'>Expenses Distribution by Category</h3>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-8 items-center'>
-                {/* Progress bars list */}
-                <div className='space-y-4'>
-                  {sortedBreakdown.slice(0, 5).map((item, index) => {
-                    const colors = [
-                      'bg-cyan',
-                      'bg-purple',
-                      'bg-blue-500',
-                      'bg-green-500',
-                      'bg-yellow-500',
-                    ];
-                    const color = colors[index % colors.length];
-                    return (
-                      <div key={item.category}>
-                        <div className='flex justify-between items-center text-xs mb-1.5'>
-                          <span className='font-medium text-gray-300'>{item.category}</span>
-                          <span className='text-gray-400 font-semibold'>
-                            <SensitiveValue>{formatCurrency(item.amount)}</SensitiveValue> ({item.percentage.toFixed(0)}%)
-                          </span>
-                        </div>
-                        <div className='w-full h-2 bg-[#0c0c0e]/85 rounded-full overflow-hidden border border-gray-800/80'>
-                          <div
-                            className={`h-full ${color} transition-all duration-500`}
-                            style={{ width: `${item.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+          {filterPanel}
 
-                {/* Donut Chart SVG */}
-                <div className='flex flex-col items-center justify-center'>
-                  <div className='relative w-36 h-36 flex items-center justify-center'>
-                    <svg className='w-full h-full transform -rotate-90' viewBox='0 0 36 36'>
-                      <circle cx='18' cy='18' r='15.915' fill='none' stroke='#111115' strokeWidth='4' />
-                      {(() => {
-                        let accumulatedPercent = 0;
-                        return sortedBreakdown.map((item, index) => {
-                          const strokeDasharray = `${item.percentage} ${100 - item.percentage}`;
-                          const strokeDashoffset = 100 - accumulatedPercent;
-                          accumulatedPercent += item.percentage;
-                          
-                          const colors = [
-                            '#00ffff',
-                            '#a855f7',
-                            '#3b82f6',
-                            '#22c55e',
-                            '#eab308',
-                          ];
-                          const strokeColor = colors[index % colors.length];
+          {/* Approval pipeline — quick pulse on what needs attention */}
+          <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+            {(['pending', 'approved', 'rejected', 'paid'] as const).map((status) => (
+              <StatTile
+                key={status}
+                label={status[0].toUpperCase() + status.slice(1)}
+                value={<SensitiveValue>{formatCurrency(stats.statusBreakdown[status] || 0)}</SensitiveValue>}
+                accentClassName={
+                  status === 'pending'
+                    ? 'border-yellow-500'
+                    : status === 'rejected'
+                    ? 'border-red-500'
+                    : 'border-green-500'
+                }
+              />
+            ))}
+          </div>
 
-                          return (
-                            <circle
-                              key={item.category}
-                              cx='18'
-                              cy='18'
-                              r='15.915'
-                              fill='none'
-                              stroke={strokeColor}
-                              strokeWidth='4'
-                              strokeDasharray={strokeDasharray}
-                              strokeDashoffset={strokeDashoffset}
-                              className="transition-all duration-500"
-                            />
-                          );
-                        });
-                      })()}
-                    </svg>
-                    <div className='absolute flex flex-col items-center justify-center'>
-                      <span className='text-lg font-bold text-white'><SensitiveValue>{formatCurrency(summary.totalExpenses).split('.')[0]}</SensitiveValue></span>
-                      <span className='text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1'>Spent</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          {/* Category breakdowns — expense vs income, side by side */}
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
+            <div className='glass p-6 rounded-lg'>
+              <h3 className='text-sm font-semibold text-white mb-1'>Expenses by Category</h3>
+              <p className='text-xs text-gray-500 mb-4'>Completed outflows, current filter</p>
+              <BarBreakdown items={toBarItems(stats.categoryExpense)} formatValue={formatCurrency} />
             </div>
-          ) : (
-            <div className='glass p-12 text-center text-gray-400 rounded-lg'>
-              No expenditure data found to compute distribution graphs.
+            <div className='glass p-6 rounded-lg'>
+              <h3 className='text-sm font-semibold text-white mb-1'>Income by Category</h3>
+              <p className='text-xs text-gray-500 mb-4'>Completed inflows, current filter</p>
+              <BarBreakdown items={toBarItems(stats.categoryIncome)} formatValue={formatCurrency} />
             </div>
-          )}
+          </div>
+
+          {/* Payment mode + transaction type breakdowns */}
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
+            <div className='glass p-6 rounded-lg'>
+              <h3 className='text-sm font-semibold text-white mb-1'>By Payment Mode</h3>
+              <p className='text-xs text-gray-500 mb-4'>All transaction amounts, current filter</p>
+              <BarBreakdown items={toBarItems(stats.modeBreakdown)} formatValue={formatCurrency} emptyLabel='No payment mode recorded' />
+            </div>
+            <div className='glass p-6 rounded-lg'>
+              <h3 className='text-sm font-semibold text-white mb-1'>By Transaction Type</h3>
+              <p className='text-xs text-gray-500 mb-4'>Income, expense, payroll, investment, reimbursement</p>
+              <BarBreakdown items={toBarItems(stats.typeBreakdown)} formatValue={formatCurrency} />
+            </div>
+          </div>
+
+          {/* Top vendors / clients */}
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
+            <div className='glass rounded-lg overflow-hidden'>
+              <h3 className='text-sm font-semibold text-white p-6 pb-0 mb-4'>Top Vendors / Payees</h3>
+              {Object.keys(stats.vendorTotals).length === 0 ? (
+                <p className='text-sm text-gray-500 text-center py-8'>No vendor spend recorded for this filter</p>
+              ) : (
+                <Table headers={['Vendor / Payee', 'Total Spent']}>
+                  {Object.entries(stats.vendorTotals)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 8)
+                    .map(([name, amount]) => (
+                      <TableRow key={name}>
+                        <TableCell className='text-gray-300 font-medium'>{name}</TableCell>
+                        <TableCell className='font-bold text-white'><SensitiveValue>{formatCurrency(amount)}</SensitiveValue></TableCell>
+                      </TableRow>
+                    ))}
+                </Table>
+              )}
+            </div>
+            <div className='glass rounded-lg overflow-hidden'>
+              <h3 className='text-sm font-semibold text-white p-6 pb-0 mb-4'>Top Clients</h3>
+              {Object.keys(stats.clientTotals).length === 0 ? (
+                <p className='text-sm text-gray-500 text-center py-8'>No client income recorded for this filter</p>
+              ) : (
+                <Table headers={['Client', 'Total Income']}>
+                  {Object.entries(stats.clientTotals)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 8)
+                    .map(([name, amount]) => (
+                      <TableRow key={name}>
+                        <TableCell className='text-gray-300 font-medium'>{name}</TableCell>
+                        <TableCell className='font-bold text-white'><SensitiveValue>{formatCurrency(amount)}</SensitiveValue></TableCell>
+                      </TableRow>
+                    ))}
+                </Table>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

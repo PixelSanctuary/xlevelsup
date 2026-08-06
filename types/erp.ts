@@ -449,7 +449,10 @@ export interface FinancialLedgerEntry {
   approval_status?: 'pending' | 'approved' | 'rejected' | 'paid' | null;
   approved_by?: number | null;
   approved_at?: string | null;
-  
+
+  /** Supabase Storage object path (bucket: expense-receipts), not a public URL. */
+  receipt_path?: string | null;
+
   created_by?: number | null;
   updated_by?: number | null;
   created_at?: string;
@@ -482,6 +485,7 @@ export interface LedgerFormData {
   description?: string | null;
   notes?: string | null;
   approval_status?: string | null;
+  receipt_path?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -605,7 +609,7 @@ export interface CareerChangeFormData {
 // Company Account Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CompanyAccountType = 'general' | 'director' | 'stakeholder' | 'operations' | 'reserve';
+export type CompanyAccountType = 'general' | 'stakeholder' | 'operations' | 'reserve';
 
 export interface CompanyAccount {
   id: number;
@@ -617,13 +621,6 @@ export interface CompanyAccount {
   created_by?: number | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface CompanyAccountFormData {
-  name: string;
-  description?: string | null;
-  account_type: CompanyAccountType;
-  opening_balance: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

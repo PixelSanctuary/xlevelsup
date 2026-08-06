@@ -11,6 +11,7 @@ import {
   getFinanceSummary,
   getEmployeeIdFromUserId,
 } from '@/lib/erp/finance';
+import { uploadReceiptFile, getReceiptSignedUrl } from '@/lib/erp/receipts';
 import { revalidatePath } from 'next/cache';
 import type { FinancialLedgerEntry } from '@/types/erp';
 
@@ -43,6 +44,7 @@ const ledgerEntrySchema = z.object({
   notes: z.string().nullable().optional(),
   approval_status: z.enum(['pending', 'approved', 'rejected', 'paid']).nullable().optional(),
   account_id: z.number().nullable().optional(),
+  receipt_path: z.string().nullable().optional(),
 });
 
 export interface FinanceActionResult {
@@ -134,6 +136,7 @@ export async function createLedgerEntryAction(
       notes: (formData.get('notes') as string) || null,
       approval_status: (formData.get('approval_status') as any) || 'approved',
       account_id: formData.get('account_id') ? parseInt(formData.get('account_id') as string, 10) : null,
+      receipt_path: null as string | null,
     };
 
     // Role restrictions
@@ -148,6 +151,11 @@ export async function createLedgerEntryAction(
       rawData.employee_id = employeeId;
       rawData.payment_status = 'pending';
       rawData.approval_status = 'pending';
+    }
+
+    const receiptFile = formData.get('receipt');
+    if (receiptFile instanceof File && receiptFile.size > 0) {
+      rawData.receipt_path = await uploadReceiptFile(receiptFile);
     }
 
     const validatedData = ledgerEntrySchema.parse(rawData);
@@ -249,5 +257,21 @@ export async function approveLedgerEntryAction(
   } catch (error) {
     console.error('Approve ledger entry error:', error);
     return { success: false, error: 'Failed to update entry approval status' };
+  }
+}
+
+/**
+ * Get a short-lived signed URL to view a ledger entry's receipt attachment.
+ * The storage bucket is private, so viewing always goes through this
+ * server action rather than a stored public URL.
+ */
+export async function getReceiptUrlAction(path: string): Promise<{ url: string | null }> {
+  try {
+    await requireAuth();
+    const url = await getReceiptSignedUrl(path);
+    return { url };
+  } catch (error) {
+    console.error('Get receipt URL error:', error);
+    return { url: null };
   }
 }

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS company_accounts (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
-    account_type VARCHAR(50) DEFAULT 'general' CHECK (account_type IN ('general', 'director', 'stakeholder', 'operations', 'reserve')),
+    account_type VARCHAR(50) DEFAULT 'general' CHECK (account_type IN ('general', 'stakeholder', 'operations', 'reserve')),
     opening_balance NUMERIC(14, 2) NOT NULL DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -25,9 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_financial_ledger_account ON financial_ledger(acco
 ALTER TABLE company_accounts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all operations for authenticated users" ON company_accounts FOR ALL USING (true);
 
--- 5. Seed default accounts
+-- 5. Seed default account
 INSERT INTO company_accounts (name, description, account_type, opening_balance)
 VALUES
-    ('Company Account', 'Main operational account for all company expenses, software subscriptions, and salary disbursements', 'operations', 0),
-    ('Director', 'Stakeholder / Director personal account for tracking director-level transactions and investments', 'director', 0)
+    ('Company Account', 'Main operational account for all company expenses, software subscriptions, and salary disbursements', 'operations', 0)
 ON CONFLICT (name) DO NOTHING;

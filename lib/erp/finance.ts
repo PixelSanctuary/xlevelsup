@@ -34,6 +34,7 @@ export async function getLedgerEntries(
     direction?: string;
     category?: string;
     payment_status?: string;
+    payment_mode?: string;
     approval_status?: string;
     month?: string;
     dateFrom?: string;

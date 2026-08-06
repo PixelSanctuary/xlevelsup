@@ -10,13 +10,7 @@ import MonthPicker from './MonthPicker';
 import SensitiveValue from './SensitiveValue';
 import type { CompanyAccount, FinancialLedgerEntry, Employee, Client } from '@/types/erp';
 import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
-import toast from 'react-hot-toast';
-import {
-  getAccountBalanceAction,
-  createCompanyAccountAction,
-  updateCompanyAccountAction,
-} from '@/actions/erp/company-accounts';
-import { useFormStatus } from 'react-dom';
+import { getAccountBalanceAction } from '@/actions/erp/company-accounts';
 
 interface AccountBalance {
   openingBalance: number;
@@ -34,18 +28,8 @@ interface CompanyAccountManagerProps {
   userRole: string;
 }
 
-function CreateAccountSubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type='submit' variant='primary' className='w-full' disabled={pending}>
-      {pending ? 'Creating...' : 'Create Account'}
-    </Button>
-  );
-}
-
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   general: 'General',
-  director: 'Director',
   stakeholder: 'Stakeholder',
   operations: 'Operations',
   reserve: 'Reserve',
@@ -53,7 +37,6 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 
 const ACCOUNT_TYPE_COLORS: Record<string, string> = {
   general: 'text-gray-300 border-gray-600',
-  director: 'text-purple border-purple/40',
   stakeholder: 'text-blue-400 border-blue-400/40',
   operations: 'text-cyan border-cyan/40',
   reserve: 'text-green-400 border-green-400/40',
@@ -74,8 +57,6 @@ export default function CompanyAccountManager({
 
   const [showAddTxModal, setShowAddTxModal] = useState(false);
   const [addTxType, setAddTxType] = useState<'expense' | 'income' | 'investment'>('expense');
-  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [filterMonth, setFilterMonth] = useState('');
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
@@ -111,17 +92,6 @@ export default function CompanyAccountManager({
   const handleOpenAddTx = (type: 'expense' | 'income' | 'investment') => {
     setAddTxType(type);
     setShowAddTxModal(true);
-  };
-
-  const handleCreateAccount = async (formData: FormData) => {
-    const result = await createCompanyAccountAction(formData);
-    if (result.success) {
-      toast.success('Account created!');
-      setShowCreateAccountModal(false);
-      router.refresh();
-    } else {
-      toast.error(result.error || 'Failed to create account');
-    }
   };
 
   return (
@@ -162,16 +132,6 @@ export default function CompanyAccountManager({
             </button>
           );
         })}
-
-        {userRole === 'admin' && (
-          <button
-            onClick={() => setShowCreateAccountModal(true)}
-            className='flex flex-col items-center justify-center px-5 py-4 rounded-xl border border-dashed border-gray-700 hover:border-cyan/50 text-gray-500 hover:text-cyan transition-all duration-200 min-w-[140px] min-h-[88px]'
-          >
-            <span className='text-2xl mb-1'>+</span>
-            <span className='text-xs font-semibold'>New Account</span>
-          </button>
-        )}
       </div>
 
       {/* Selected Account Detail Panel */}
@@ -362,63 +322,6 @@ export default function CompanyAccountManager({
             router.refresh();
           }}
         />
-      </Modal>
-
-      {/* Create New Account Modal */}
-      <Modal
-        isOpen={showCreateAccountModal}
-        onClose={() => setShowCreateAccountModal(false)}
-        title='Create New Account'
-      >
-        <form action={handleCreateAccount} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Account Name *</label>
-            <input
-              type='text'
-              name='name'
-              required
-              placeholder='e.g. Operations Account, Director...'
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            />
-          </div>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Account Type *</label>
-            <select
-              name='account_type'
-              required
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            >
-              <option value='operations'>Operations</option>
-              <option value='director'>Director</option>
-              <option value='stakeholder'>Stakeholder</option>
-              <option value='general'>General</option>
-              <option value='reserve'>Reserve</option>
-            </select>
-          </div>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Opening Balance (₹)</label>
-            <input
-              type='number'
-              name='opening_balance'
-              defaultValue='0'
-              min='0'
-              step='0.01'
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            />
-          </div>
-          <div>
-            <label className='block text-sm font-medium mb-2'>Description</label>
-            <textarea
-              name='description'
-              rows={2}
-              placeholder='Brief description of this account...'
-              className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
-            />
-          </div>
-          <div className='pt-2'>
-            <CreateAccountSubmitButton />
-          </div>
-        </form>
       </Modal>
     </div>
   );
