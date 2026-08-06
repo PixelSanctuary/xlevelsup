@@ -12,8 +12,9 @@ import AttendanceRecordsTable from '@/components/erp/employee/AttendanceRecordsT
 import AttendanceChangeRequestForm from '@/components/erp/employee/AttendanceChangeRequestForm';
 import AttendanceChangeRequestsList from '@/components/erp/employee/AttendanceChangeRequestsList';
 import RegularisationRequestForm from '@/components/erp/employee/RegularisationRequestForm';
-import { getTimeLogsByRange } from '@/lib/erp/time-logs';
+import { getTimeLogsByRange, getTimeLogSummary } from '@/lib/erp/time-logs';
 import { employeeLogoutAction } from '@/actions/erp/employee-auth';
+import ClockInOut from '@/components/erp/employee/ClockInOut';
 
 export default async function EmployeeAttendancePage({
   searchParams,
@@ -28,6 +29,7 @@ export default async function EmployeeAttendancePage({
 }) {
   const session = await requireEmployeeAuth();
   const params = await searchParams;
+  const timeLogSummary = await getTimeLogSummary(session.id);
 
   // Get attendance records for the last 3 months
   const threeMonthsAgo = new Date();
@@ -134,8 +136,11 @@ export default async function EmployeeAttendancePage({
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left — Attendance Records + Requests History */}
+          {/* Left — Clock In/Out + Attendance Records + Requests History */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Clock In / Clock Out */}
+            <ClockInOut employeeId={session.id} initialSummary={timeLogSummary} />
+
             {/* Attendance Calendar / Table */}
             <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6">
               <h2 className="text-xl font-bold mb-4">Attendance Records (Last 3 Months)</h2>

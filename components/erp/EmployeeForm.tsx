@@ -1,7 +1,6 @@
 'use client';
 
-import { useFormStatus } from 'react-dom';
-import { useState, useEffect, useActionState } from 'react';
+import { useState } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import {
@@ -10,9 +9,7 @@ import {
 } from '@/actions/erp/employees';
 import type { Employee } from '@/types/erp';
 
-function SubmitButton({ isEdit }: { isEdit: boolean }) {
-  const { pending } = useFormStatus();
-
+function SubmitButton({ isEdit, pending }: { isEdit: boolean; pending: boolean }) {
   return (
     <Button
       type='submit'
@@ -43,40 +40,35 @@ export default function EmployeeForm({
   const [salaryType, setSalaryType] = useState(
     employee?.salary_type || 'monthly',
   );
+  const [pending, setPending] = useState(false);
 
-  const [state, formAction] = useActionState(
-    async (prevState: any, formData: FormData) => {
-      if (isEdit) {
-        return await updateEmployeeAction(employee.id, formData);
-      } else {
-        return await createEmployeeAction(formData);
-      }
-    },
-    { success: false },
-  );
+  // Submitted via a plain onSubmit handler rather than `<form action={fn}>`
+  // — React 19 resets an uncontrolled form's fields after any action-prop
+  // submission settles, success or not, which was wiping the whole form on
+  // a validation error. A manual onSubmit + preventDefault doesn't trigger
+  // that reset, so a failed submission leaves what the user typed in place.
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    setPending(true);
+    const result = isEdit
+      ? await updateEmployeeAction(employee.id, formData)
+      : await createEmployeeAction(formData);
+    setPending(false);
 
-  useEffect(() => {
-    if (state.success) {
+    if (result.success) {
       toast.success(
-        isEdit
-          ? 'Employee updated successfully!'
-          : 'Employee created successfully!',
-        {
-          duration: 2000,
-          position: 'top-center',
-        },
+        isEdit ? 'Employee updated successfully!' : 'Employee created successfully!',
+        { duration: 2000, position: 'top-center' },
       );
       onSuccess?.();
-    } else if (state.error) {
-      toast.error(state.error, {
-        duration: 3000,
-        position: 'top-center',
-      });
+    } else if (result.error) {
+      toast.error(result.error, { duration: 3000, position: 'top-center' });
     }
-  }, [state, isEdit, onSuccess]);
+  };
 
   return (
-    <form action={formAction} className='space-y-4'>
+    <form onSubmit={handleSubmit} className='space-y-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
         <div>
           <label
@@ -361,7 +353,7 @@ export default function EmployeeForm({
       </div>
 
       <div className='pt-4'>
-        <SubmitButton isEdit={isEdit} />
+        <SubmitButton isEdit={isEdit} pending={pending} />
       </div>
     </form>
   );

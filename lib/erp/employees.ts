@@ -18,12 +18,13 @@ function generateDefaultPassword(employeeId: string): string {
 
 /**
  * Generate next employee ID
- * - Temporary employees: TEMP-XLU-001, TEMP-XLU-002, etc.
+ * - Temporary/freelancer employees: TEMP001, TEMP002, etc.
  * - Regular employees: XLU001, XLU002, etc.
  */
 async function generateEmployeeId(employmentType?: string): Promise<string> {
   try {
-    const isTemporary = employmentType === 'temporary';
+    const isTemporary =
+      employmentType === 'temporary' || employmentType === 'freelancer';
     const prefix = isTemporary ? 'TEMP' : 'XLU';
     const pattern = isTemporary ? /TEMP(\d+)/ : /XLU(\d+)/;
 
