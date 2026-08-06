@@ -2,7 +2,7 @@
  * Employee Portal Dashboard
  */
 
-import { requireEmployeeAuth } from '@/lib/erp/employee-portal-auth';
+import { requireFullPortalAccess } from '@/lib/erp/employee-portal-auth';
 import {
   getEmployeeLeaveRequests,
   getEmployeeLeaveBalance,
@@ -14,7 +14,7 @@ import ClockInOut from '@/components/erp/employee/ClockInOut';
 import Link from 'next/link';
 
 export default async function EmployeeDashboardPage() {
-  const session = await requireEmployeeAuth();
+  const session = await requireFullPortalAccess();
   const employee = await getEmployeeById(session.id);
   const leaveRequests = await getEmployeeLeaveRequests(session.id);
   const leaveBalances = await getEmployeeLeaveBalance(session.id);

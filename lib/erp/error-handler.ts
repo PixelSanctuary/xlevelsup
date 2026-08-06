@@ -29,6 +29,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Not found errors
   PGRST116: 'Record not found.',
 
+  // Schema cache errors (column/table missing or a pending migration)
+  PGRST204: 'A database column is missing or out of date. Please contact support.',
+
   // Generic errors
   '42P01': 'Database table not found. Please contact support.',
   '42703': 'Database column not found. Please contact support.',

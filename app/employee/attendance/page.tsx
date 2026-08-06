@@ -13,6 +13,7 @@ import AttendanceChangeRequestForm from '@/components/erp/employee/AttendanceCha
 import AttendanceChangeRequestsList from '@/components/erp/employee/AttendanceChangeRequestsList';
 import RegularisationRequestForm from '@/components/erp/employee/RegularisationRequestForm';
 import { getTimeLogsByRange } from '@/lib/erp/time-logs';
+import { employeeLogoutAction } from '@/actions/erp/employee-auth';
 
 export default async function EmployeeAttendancePage({
   searchParams,
@@ -90,12 +91,23 @@ export default async function EmployeeAttendancePage({
                 View records and raise regularisation requests
               </p>
             </div>
-            <a
-              href="/employee/dashboard"
-              className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              ← Back to Dashboard
-            </a>
+            {session.employment_type === 'freelancer' ? (
+              <form action={employeeLogoutAction}>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                >
+                  Logout
+                </button>
+              </form>
+            ) : (
+              <a
+                href="/employee/dashboard"
+                className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                ← Back to Dashboard
+              </a>
+            )}
           </div>
         </div>
       </div>

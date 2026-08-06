@@ -276,6 +276,7 @@ export interface EmployeeSession {
   email: string;
   role: string;
   department: string;
+  employment_type?: EmploymentType;
   require_password_change: boolean;
 }
 

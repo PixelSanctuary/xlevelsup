@@ -39,7 +39,10 @@ const employeeSchema = z.object({
     .nullable(),
   hourly_rate: z.number().min(0).optional().nullable(),
   status: z.enum(['active', 'inactive']),
-});
+}).refine(
+  (data) => data.salary_type !== 'hourly' || (data.hourly_rate ?? 0) > 0,
+  { message: 'Hourly rate is required for hourly salary type', path: ['hourly_rate'] },
+);
 
 export interface EmployeeActionResult {
   success: boolean;
@@ -123,7 +126,10 @@ export async function createEmployeeAction(
     if (error instanceof Error && error.message.includes('UNIQUE')) {
       return { success: false, error: 'Employee ID or email already exists' };
     }
-    return { success: false, error: 'Failed to create employee' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create employee',
+    };
   }
 }
 
@@ -169,7 +175,10 @@ export async function updateEmployeeAction(
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0].message };
     }
-    return { success: false, error: 'Failed to update employee' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update employee',
+    };
   }
 }
 

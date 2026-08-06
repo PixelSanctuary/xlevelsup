@@ -125,6 +125,7 @@ export async function createEmployeeSession(
     email: employee.email,
     role: employee.role,
     department: employee.department,
+    employment_type: employee.employment_type,
     require_password_change: employee.require_password_change || false,
   };
 

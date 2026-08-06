@@ -17,8 +17,13 @@ export default async function EmployeeLayout({
 }) {
   const session = await getEmployeeSession();
 
-  // No session (login page) or mid-forced-password-change: skip banners entirely.
-  if (!session || session.require_password_change) {
+  // No session (login page), mid-forced-password-change, or freelancer
+  // (attendance-only portal): skip banners entirely.
+  if (
+    !session ||
+    session.require_password_change ||
+    session.employment_type === 'freelancer'
+  ) {
     return <>{children}</>;
   }
 

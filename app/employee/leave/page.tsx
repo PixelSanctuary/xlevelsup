@@ -2,7 +2,7 @@
  * Employee Leave Requests Page
  */
 
-import { requireEmployeeAuth } from '@/lib/erp/employee-portal-auth';
+import { requireFullPortalAccess } from '@/lib/erp/employee-portal-auth';
 import {
   getEmployeeLeaveRequests,
   getEmployeeLeaveBalance,
@@ -13,7 +13,7 @@ import LeaveBalanceChart from '@/components/erp/employee/LeaveBalanceChart';
 import Link from 'next/link';
 
 export default async function EmployeeLeavePage() {
-  const session = await requireEmployeeAuth();
+  const session = await requireFullPortalAccess();
   const leaveRequests = await getEmployeeLeaveRequests(session.id);
   const leaveBalances = await getEmployeeLeaveBalance(session.id);
 

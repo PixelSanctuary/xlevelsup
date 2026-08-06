@@ -12,6 +12,7 @@ import {
   createEmployeeSession,
 } from '@/lib/erp/employee-auth';
 import { createLoginLog } from '@/lib/erp/login-logs';
+import type { EmploymentType } from '@/types/erp';
 
 // Validation schemas
 const loginSchema = z.object({
@@ -41,6 +42,7 @@ export async function employeeLoginAction(
   success: boolean;
   error?: string;
   requirePasswordChange?: boolean;
+  employmentType?: EmploymentType;
 }> {
   try {
     const email = formData.get('email') as string;
@@ -103,6 +105,7 @@ export async function employeeLoginAction(
     return {
       success: true,
       requirePasswordChange: result.requirePasswordChange,
+      employmentType: result.employee.employment_type,
     };
   } catch (error) {
     console.error('Employee login error:', error);

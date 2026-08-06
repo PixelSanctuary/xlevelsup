@@ -52,3 +52,18 @@ export async function requireEmployeeAuthAllowPasswordChange(): Promise<Employee
 
   return session;
 }
+
+/**
+ * Require employee authentication, and additionally block freelancers
+ * (who are restricted to the Attendance screen) from full-portal pages
+ * like the dashboard and leave requests.
+ */
+export async function requireFullPortalAccess(): Promise<EmployeeSession> {
+  const session = await requireEmployeeAuth();
+
+  if (session.employment_type === 'freelancer') {
+    redirect('/employee/attendance');
+  }
+
+  return session;
+}

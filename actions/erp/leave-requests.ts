@@ -16,6 +16,30 @@ import {
   calculateLeaveDaysWithHolidays,
   getWfhDaysCountInMonth,
 } from '@/lib/erp/leave-requests';
+import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
+
+/**
+ * Verify the caller is authenticated as this exact employee and is not a
+ * freelancer (who is restricted to the Attendance screen). Leave requests
+ * must never be creatable/editable/cancelable via a direct action call that
+ * bypasses the page-level redirect for freelancers, or by one employee
+ * spoofing another employee's id.
+ */
+async function assertOwnLeaveAccess(employeeId: number): Promise<string | null> {
+  const session = await getEmployeeSession();
+
+  if (!session) {
+    return 'Not authenticated. Please log in again.';
+  }
+  if (session.id !== employeeId) {
+    return 'You are not authorized to modify this leave request.';
+  }
+  if (session.employment_type === 'freelancer') {
+    return 'Leave requests are not available for freelancer accounts.';
+  }
+
+  return null;
+}
 
 // Validation schema
 const leaveRequestSchema = z.object({
@@ -51,6 +75,11 @@ export async function createLeaveRequestAction(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const authError = await assertOwnLeaveAccess(employeeId);
+    if (authError) {
+      return { success: false, error: authError };
+    }
+
     const data: LeaveRequestFormData = {
       leave_type: formData.get('leave_type') as any,
       start_date: formData.get('start_date') as string,
@@ -144,6 +173,11 @@ export async function updateLeaveRequestAction(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const authError = await assertOwnLeaveAccess(employeeId);
+    if (authError) {
+      return { success: false, error: authError };
+    }
+
     const data: LeaveRequestFormData = {
       leave_type: formData.get('leave_type') as any,
       start_date: formData.get('start_date') as string,
@@ -235,6 +269,11 @@ export async function cancelLeaveRequestAction(
   employeeId: number,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const authError = await assertOwnLeaveAccess(employeeId);
+    if (authError) {
+      return { success: false, error: authError };
+    }
+
     await cancelLeaveRequest(leaveRequestId, employeeId);
 
     revalidatePath('/employee/leave');

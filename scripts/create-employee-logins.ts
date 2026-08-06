@@ -3,7 +3,7 @@
  *
  * Employee ID format:
  *   Full-time / part-time / contract : XLU000, XLU001, ...
- *   Temporary                        : TEMP000, TEMP001, ...
+ *   Temporary / freelancer           : TEMP000, TEMP001, ...
  *
  * Default password: Welcome@<employee_id>
  * Run with: npx ts-node -r tsconfig-paths/register scripts/create-employee-logins.ts
@@ -37,7 +37,8 @@ const bcrypt = require('bcryptjs');
 async function getNextEmployeeId(
   employmentType: string,
 ): Promise<string> {
-  const isTemporary = employmentType === 'temporary';
+  const isTemporary =
+    employmentType === 'temporary' || employmentType === 'freelancer';
   const prefix = isTemporary ? 'TEMP' : 'XLU';
 
   // Get the highest existing ID for this series
@@ -145,8 +146,8 @@ async function createEmployeeLogins() {
     }
     console.log('='.repeat(60));
     console.log('\n📌 Notes:');
-    console.log('   • Regular employees  : XLU001, XLU002, ...');
-    console.log('   • Temporary employees: TEMP001, TEMP002, ...');
+    console.log('   • Regular employees        : XLU001, XLU002, ...');
+    console.log('   • Temporary/freelancer     : TEMP001, TEMP002, ...');
     console.log('   • Default password format: Welcome@<employee_id>');
     console.log('   • All new employees must change password on first login');
     console.log('   • Employee Portal : http://localhost:3000/employee/login\n');

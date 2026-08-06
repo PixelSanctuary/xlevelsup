@@ -41,6 +41,8 @@ function EmployeeLoginForm() {
       toast.success('Login successful!');
       if (state.requirePasswordChange) {
         router.push('/employee/change-password');
+      } else if (state.employmentType === 'freelancer') {
+        router.push('/employee/attendance');
       } else {
         router.push('/employee/dashboard');
       }
