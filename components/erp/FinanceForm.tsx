@@ -1,10 +1,11 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useEffect, useActionState, useState } from 'react';
+import { useEffect, useActionState, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import { createLedgerEntryAction } from '@/actions/erp/finance';
+import { restoreFormValues } from '@/lib/utils/form';
 import type { Employee, CompanyAccount, Client } from '@/types/erp';
 
 function SubmitButton() {
@@ -52,9 +53,12 @@ export default function FinanceForm({
   const isSalaryExpense = type === 'expense' && selectedCategory === 'Salary';
   const companyAccount = accounts.find((acc) => acc.name === 'Company Account');
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const lastFormData = useRef<FormData | null>(null);
 
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
+      lastFormData.current = formData;
       // Inflow vs Outflow determination
       const isInflow = type === 'income' || type === 'investment';
       formData.set('direction', isInflow ? 'inflow' : 'outflow');
@@ -94,6 +98,9 @@ export default function FinanceForm({
         duration: 3000,
         position: 'top-center',
       });
+      // React resets uncontrolled fields once the action resolves, even
+      // though this is an error — put the user's input back.
+      restoreFormValues(formRef.current, lastFormData.current);
     }
   }, [state, onSuccess]);
 
@@ -143,7 +150,7 @@ export default function FinanceForm({
   };
 
   return (
-    <form action={formAction} className='space-y-4'>
+    <form ref={formRef} action={formAction} className='space-y-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
         {/* Date Field */}
         <div>

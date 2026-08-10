@@ -38,7 +38,7 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
   };
 
   const lineTotals = useMemo(
-    () => items.map((item) => round2Amount(item.quantity * item.rate)),
+    () => items.map((item) => round2Amount(item.rate)),
     [items],
   );
 
@@ -57,10 +57,8 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
     const errs: Record<number, string> = {};
     items.forEach((item, index) => {
       if (!item.description.trim()) return;
-      if (item.quantity <= 0) {
-        errs[index] = 'Quantity must be greater than 0';
-      } else if (item.rate < 0) {
-        errs[index] = 'Rate cannot be negative';
+      if (item.rate <= 0) {
+        errs[index] = 'Amount must be greater than 0';
       }
     });
     return errs;
@@ -86,7 +84,7 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
     setSubmitError(null);
 
     const hasLineErrors = items.some(
-      (item) => item.description.trim() && (item.quantity <= 0 || item.rate < 0),
+      (item) => item.description.trim() && item.rate <= 0,
     );
     if (!clientName.trim() || validItems.length === 0 || hasLineErrors || isSubmitting) {
       return;
@@ -99,7 +97,7 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
         paymentMethod,
         items: validItems.map((item) => ({
           description: item.description.trim(),
-          quantity: item.quantity,
+          quantity: 1,
           rate: item.rate,
         })),
         notes: notes.trim() || null,
@@ -191,27 +189,13 @@ export default function BillingTerminal({ knownClients }: BillingTerminalProps) 
                         type="number"
                         step="0.01"
                         min="0"
-                        placeholder="Qty"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
-                        className={`w-full sm:w-20 bg-transparent border rounded-lg px-3 py-2 text-sm focus:outline-none ${
-                          lineError ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-cyan'
-                        }`}
-                      />
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Rate"
+                        placeholder="Amount"
                         value={item.rate}
                         onChange={(e) => updateItem(index, { rate: Number(e.target.value) })}
-                        className={`w-full sm:w-28 bg-transparent border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                        className={`w-full sm:w-32 bg-transparent border rounded-lg px-3 py-2 text-sm focus:outline-none ${
                           lineError ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-cyan'
                         }`}
                       />
-                      <div className="w-full sm:w-24 text-sm font-semibold text-right">
-                        {formatCurrency(lineTotals[index] || 0)}
-                      </div>
                       <button
                         onClick={() => removeLine(index)}
                         disabled={items.length === 1}

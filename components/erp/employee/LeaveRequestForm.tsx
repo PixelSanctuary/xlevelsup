@@ -4,11 +4,12 @@
  * Leave Request Form Component (Employee Portal)
  */
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useState, useRef } from 'react';
 import { createLeaveRequestAction } from '@/actions/erp/leave-requests';
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
 import { toast } from 'react-hot-toast';
+import { restoreFormValues } from '@/lib/utils/form';
 import type { LeaveBalance } from '@/types/erp';
 
 interface LeaveRequestFormProps {
@@ -20,8 +21,17 @@ export default function LeaveRequestForm({
   employeeId,
   leaveBalances,
 }: LeaveRequestFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const lastFormData = useRef<FormData | null>(null);
+
   const [state, formAction, isPending] = useActionState(
-    createLeaveRequestAction.bind(null, employeeId),
+    async (
+      prevState: { success: boolean; error?: string } | null,
+      formData: FormData,
+    ) => {
+      lastFormData.current = formData;
+      return await createLeaveRequestAction(employeeId, prevState, formData);
+    },
     null,
   );
 
@@ -74,6 +84,9 @@ export default function LeaveRequestForm({
       }, 0);
     } else if (state?.error) {
       toast.error(state.error);
+      // React resets uncontrolled fields once the action resolves, even
+      // though this is an error — put the user's input back.
+      restoreFormValues(formRef.current, lastFormData.current);
     }
   }, [state]);
 
@@ -98,7 +111,7 @@ export default function LeaveRequestForm({
     <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6'>
       <h2 className='text-xl font-bold text-white mb-4'>New Leave Request</h2>
 
-      <form action={formAction} className='space-y-4'>
+      <form ref={formRef} action={formAction} className='space-y-4'>
         {/* Leave Type */}
         <div>
           <label

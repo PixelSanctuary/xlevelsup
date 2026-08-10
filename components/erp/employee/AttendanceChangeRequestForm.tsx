@@ -4,7 +4,7 @@
  * Attendance Change Request Form Component
  */
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useState, useRef } from 'react';
 import {
   createAttendanceChangeRequestAction,
   createAttendanceRegularisationRequestAction,
@@ -12,6 +12,7 @@ import {
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
 import { toast } from 'react-hot-toast';
+import { restoreFormValues } from '@/lib/utils/form';
 import type { AttendanceRegularisationType } from '@/types/erp';
 
 interface AttendanceChangeRequestFormProps {
@@ -37,6 +38,8 @@ export default function AttendanceChangeRequestForm({
   const [clockOutTime, setClockOutTime] = useState('');
   const [attendanceId, setAttendanceId] = useState<number | null>(initialAttendanceId ?? null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(initialCurrentStatus ?? null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const lastFormData = useRef<FormData | null>(null);
 
   // Handle updates to props (e.g. a date picked from the calendar)
   useEffect(() => {
@@ -53,6 +56,7 @@ export default function AttendanceChangeRequestForm({
   }, [initialDate, initialIsMissed, initialAttendanceId, initialCurrentStatus]);
 
   const handleFormAction = async (prevState: any, formData: FormData) => {
+    lastFormData.current = formData;
     // Validate date selection
     if (!selectedDate) {
       return { success: false, error: 'Please select a date' };
@@ -122,11 +126,14 @@ export default function AttendanceChangeRequestForm({
       }, 1000);
     } else if (state?.error) {
       toast.error(state.error);
+      // React resets uncontrolled fields once the action resolves, even
+      // though this is an error — put the user's input back.
+      restoreFormValues(formRef.current, lastFormData.current);
     }
   }, [state]);
 
   return (
-    <form id='change-request-form' action={formAction} className='space-y-4'>
+    <form id='change-request-form' ref={formRef} action={formAction} className='space-y-4'>
       {/* Request Date - Calendar Picker */}
       <DatePicker
         label='Date'

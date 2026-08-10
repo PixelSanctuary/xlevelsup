@@ -6,7 +6,7 @@
  * Supports: missed_clock_in | missed_clock_out | missed_both | clock_in_correction | clock_out_correction
  */
 
-import { useActionState, useEffect, useState, useTransition } from 'react';
+import { useActionState, useEffect, useState, useTransition, useRef } from 'react';
 import {
   createAttendanceRegularisationRequestAction,
   getAttendanceForRegularisationDateAction,
@@ -14,6 +14,7 @@ import {
 import Button from '@/components/ui/Button';
 import DatePicker from '@/components/ui/DatePicker';
 import { toast } from 'react-hot-toast';
+import { restoreFormValues } from '@/lib/utils/form';
 import type { AttendanceRegularisationType } from '@/types/erp';
 
 interface RegularisationRequestFormProps {
@@ -95,6 +96,8 @@ export default function RegularisationRequestForm({
   const [currentClockOut, setCurrentClockOut] = useState<string | null>(null);
   const [attendanceId, setAttendanceId] = useState<number | null>(null);
   const [isFetchingDate, startFetch] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+  const lastFormData = useRef<FormData | null>(null);
 
   // Decide which fields to show based on request type
   const needsClockIn =
@@ -143,6 +146,7 @@ export default function RegularisationRequestForm({
   }, [selectedDate]);
 
   const handleFormAction = async (prevState: any, formData: FormData) => {
+    lastFormData.current = formData;
     if (!selectedDate) return { success: false, error: 'Please select a date' };
     if (!requestType) return { success: false, error: 'Please select a request type' };
 
@@ -180,6 +184,9 @@ export default function RegularisationRequestForm({
       setTimeout(() => window.location.reload(), 1000);
     } else if (state?.error) {
       toast.error(state.error);
+      // React resets uncontrolled fields once the action resolves, even
+      // though this is an error — put the user's input back.
+      restoreFormValues(formRef.current, lastFormData.current);
     }
   }, [state]);
 
@@ -195,7 +202,7 @@ export default function RegularisationRequestForm({
   })();
 
   return (
-    <form id="regularisation-request-form" action={formAction} className="space-y-5">
+    <form id="regularisation-request-form" ref={formRef} action={formAction} className="space-y-5">
       {/* Date Picker */}
       <DatePicker
         label="Attendance Date"

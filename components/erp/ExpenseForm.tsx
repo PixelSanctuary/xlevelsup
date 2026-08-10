@@ -1,10 +1,11 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useEffect, useActionState } from 'react';
+import { useEffect, useActionState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import { createExpenseAction } from '@/actions/erp/expenses';
+import { restoreFormValues } from '@/lib/utils/form';
 import type { Employee } from '@/types/erp';
 
 function SubmitButton() {
@@ -34,9 +35,12 @@ export default function ExpenseForm({
   onSuccess,
 }: ExpenseFormProps) {
   const today = new Date().toISOString().split('T')[0];
+  const formRef = useRef<HTMLFormElement>(null);
+  const lastFormData = useRef<FormData | null>(null);
 
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
+      lastFormData.current = formData;
       return await createExpenseAction(formData);
     },
     { success: false },
@@ -54,12 +58,15 @@ export default function ExpenseForm({
         duration: 3000,
         position: 'top-center',
       });
+      // React resets uncontrolled fields once the action resolves, even
+      // though this is an error — put the user's input back.
+      restoreFormValues(formRef.current, lastFormData.current);
     }
   }, [state, onSuccess]);
 
 
   return (
-    <form action={formAction} className='space-y-4'>
+    <form ref={formRef} action={formAction} className='space-y-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
         <div>
           <label htmlFor='date' className='block text-sm font-medium mb-2'>

@@ -1,10 +1,11 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useState, useEffect, useActionState } from 'react';
+import { useState, useEffect, useActionState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import { saveAttendanceAction } from '@/actions/erp/attendance';
+import { restoreFormValues } from '@/lib/utils/form';
 import type { Employee } from '@/types/erp';
 
 function SubmitButton() {
@@ -33,9 +34,12 @@ export default function AttendanceForm({
 }: AttendanceFormProps) {
   const [status, setStatus] = useState('');
   const [halfDayPeriod, setHalfDayPeriod] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
+  const lastFormData = useRef<FormData | null>(null);
 
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
+      lastFormData.current = formData;
       return await saveAttendanceAction(formData);
     },
     { success: false },
@@ -53,13 +57,16 @@ export default function AttendanceForm({
         duration: 3000,
         position: 'top-center',
       });
+      // React resets uncontrolled fields once the action resolves, even
+      // though this is an error — put the user's input back.
+      restoreFormValues(formRef.current, lastFormData.current);
     }
   }, [state, onSuccess]);
 
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <form action={formAction} className='space-y-4'>
+    <form ref={formRef} action={formAction} className='space-y-4'>
       <div>
         <label htmlFor='employee_id' className='block text-sm font-medium mb-2'>
           Employee *

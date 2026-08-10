@@ -22,12 +22,16 @@ export default async function BillingPage({
 
   const params = await searchParams;
   const activeTab = params.tab === 'history' ? 'history' : 'new';
-  const month = params.month || getCurrentMonth();
+  // `month` is absent on first load (defaults to the current month), but an
+  // explicitly empty value means the user cleared the filter to see every
+  // invoice — those two cases must stay distinguishable.
+  const month = params.month !== undefined ? params.month : getCurrentMonth();
 
   const clients = await getClients();
   const knownClients = clients.map((client) => client.name);
 
-  const orders = activeTab === 'history' ? await getOrdersAction({ month }) : [];
+  const orders =
+    activeTab === 'history' ? await getOrdersAction({ month: month || undefined }) : [];
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>

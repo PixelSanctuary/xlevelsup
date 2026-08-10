@@ -1,10 +1,11 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useEffect, useActionState, useState } from 'react';
+import { useEffect, useActionState, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import { createClientTransactionAction, updateClientTransactionAction } from '@/actions/erp/client-finances';
+import { restoreFormValues } from '@/lib/utils/form';
 import {
   INCOME_CATEGORIES,
   EXPENSE_CATEGORIES,
@@ -38,8 +39,12 @@ export default function ClientFinanceForm({
   onSuccess,
   transaction,
 }: ClientFinanceFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const lastFormData = useRef<FormData | null>(null);
+
   const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
+      lastFormData.current = formData;
       if (transaction) {
         return await updateClientTransactionAction(transaction.id, formData);
       }
@@ -80,6 +85,9 @@ export default function ClientFinanceForm({
         duration: 3000,
         position: 'top-center',
       });
+      // React resets uncontrolled fields once the action resolves, even
+      // though this is an error — put the user's input back.
+      restoreFormValues(formRef.current, lastFormData.current);
     }
   }, [state, onSuccess, transaction]);
 
@@ -93,7 +101,7 @@ export default function ClientFinanceForm({
       : null;
 
   return (
-    <form action={formAction} className='space-y-4'>
+    <form ref={formRef} action={formAction} className='space-y-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
         <div>
           <label

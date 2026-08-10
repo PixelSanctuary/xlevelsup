@@ -8,7 +8,7 @@ import MonthPicker from './MonthPicker';
 import InvoiceReceiptModal from './InvoiceReceiptModal';
 import SensitiveValue from './SensitiveValue';
 import { getOrderReceiptAction } from '@/actions/erp/billing';
-import { formatCurrency, formatDisplayDate } from '@/lib/erp/utils';
+import { formatCurrency, formatDisplayDate, getCurrentMonth } from '@/lib/erp/utils';
 import type { Order, ReceiptData } from '@/types/billing';
 
 interface InvoiceHistoryProps {
@@ -25,17 +25,25 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryProps) {
   const router = useRouter();
   const [month, setMonth] = useState(initialMonth);
+  // Remembers the last concrete month selected, so toggling "Show all" back
+  // off restores it instead of landing on a blank picker.
+  const [lastMonth, setLastMonth] = useState(initialMonth || getCurrentMonth());
   const [search, setSearch] = useState('');
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [loadingOrderId, setLoadingOrderId] = useState<number | null>(null);
 
   const applyMonth = (next: string) => {
     setMonth(next);
+    if (next) setLastMonth(next);
     const params = new URLSearchParams();
     params.set('tab', 'history');
-    if (next) params.set('month', next);
+    // Always set `month` (even to ''), so an explicitly-cleared filter is
+    // distinguishable server-side from the param simply being absent.
+    params.set('month', next);
     router.push(`/erp/billing?${params.toString()}`);
   };
+
+  const isAllTime = month === '';
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -71,7 +79,22 @@ export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryP
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-400 mb-2">Month</label>
-          <MonthPicker value={month} onChange={applyMonth} />
+          <div className="flex gap-2">
+            <div className="flex-1 min-w-0">
+              <MonthPicker value={month} onChange={applyMonth} />
+            </div>
+            <button
+              type="button"
+              onClick={() => applyMonth(isAllTime ? lastMonth : '')}
+              className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap ${
+                isAllTime
+                  ? 'bg-cyan/10 border-cyan text-cyan'
+                  : 'border-gray-700 text-gray-400 hover:border-gray-600'
+              }`}
+            >
+              {isAllTime ? '✓ All time' : 'Show all'}
+            </button>
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-400 mb-2">Search</label>
@@ -88,13 +111,16 @@ export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryP
       <div className="glass p-4 rounded-lg flex items-center justify-between">
         <span className="text-sm text-gray-400">
           {filteredOrders.length} invoice{filteredOrders.length !== 1 ? 's' : ''}
+          {isAllTime ? ' — all time' : ''}
         </span>
         <span className="text-sm font-semibold text-cyan"><SensitiveValue>{formatCurrency(totalForMonth)}</SensitiveValue></span>
       </div>
 
       <div className="glass rounded-lg overflow-hidden">
         {filteredOrders.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">No invoices found for this period</div>
+          <div className="text-center py-12 text-gray-400">
+            {isAllTime ? 'No invoices found' : 'No invoices found for this period'}
+          </div>
         ) : (
           <Table headers={['Invoice #', 'Client', 'Date', 'Payment', 'Amount', 'Actions']}>
             {filteredOrders.map((order) => (
