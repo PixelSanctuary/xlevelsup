@@ -53,6 +53,13 @@ export interface ProcessServiceInvoiceInput {
   notes?: string | null;
 }
 
+/** Editing an existing invoice never touches invoice_number or client_name. */
+export interface UpdateServiceInvoiceInput {
+  paymentMethod: PaymentMethod;
+  items: InvoiceLineItem[];
+  notes?: string | null;
+}
+
 /** A receipt-ready line item, used by InvoiceReceipt / BulkReceiptWrapper */
 export interface ReceiptLineItem {
   description: string;
@@ -83,4 +90,11 @@ export interface ProcessServiceInvoiceResult {
   orderNumber?: string;
   invoiceNumber?: string;
   receipt?: ReceiptData;
+}
+
+export interface GetOrderForEditResult {
+  success: boolean;
+  error?: string;
+  order?: Order;
+  items?: OrderItem[];
 }

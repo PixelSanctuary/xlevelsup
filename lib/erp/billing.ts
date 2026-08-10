@@ -50,6 +50,63 @@ export async function createOrderItems(
 }
 
 /**
+ * Update an existing invoice's editable fields — deliberately excludes
+ * invoice_number and client_name, which stay fixed once an invoice exists.
+ */
+export async function updateOrder(
+  orderId: number,
+  patch: {
+    payment_method: PaymentMethod;
+    taxable_value: number;
+    cgst_amount: number;
+    sgst_amount: number;
+    grand_total: number;
+    notes: string | null;
+  },
+): Promise<Order> {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    throw handleDatabaseError(error, 'update order');
+  }
+}
+
+/**
+ * Swap an order's line items wholesale — simpler and safer than diffing
+ * individual rows, and nothing else references order_items by id.
+ */
+export async function replaceOrderItems(
+  orderId: number,
+  items: Array<{ description: string; quantity: number; rate: number }>,
+): Promise<OrderItem[]> {
+  try {
+    const { error: deleteError } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('order_id', orderId);
+    if (deleteError) throw deleteError;
+
+    const { data, error } = await supabase
+      .from('order_items')
+      .insert(items.map((item) => ({ ...item, order_id: orderId })))
+      .select();
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    throw handleDatabaseError(error, 'update order items');
+  }
+}
+
+/**
  * Rollback helper: remove an order created earlier in the same checkout
  * if a later step (line items) fails.
  */

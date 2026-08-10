@@ -6,10 +6,11 @@ import toast from 'react-hot-toast';
 import { Table, TableRow, TableCell } from './Table';
 import MonthPicker from './MonthPicker';
 import InvoiceReceiptModal from './InvoiceReceiptModal';
+import InvoiceEditModal from './InvoiceEditModal';
 import SensitiveValue from './SensitiveValue';
-import { getOrderReceiptAction } from '@/actions/erp/billing';
+import { getOrderReceiptAction, getOrderForEditAction } from '@/actions/erp/billing';
 import { formatCurrency, formatDisplayDate, getCurrentMonth } from '@/lib/erp/utils';
-import type { Order, ReceiptData } from '@/types/billing';
+import type { Order, OrderItem, ReceiptData } from '@/types/billing';
 
 interface InvoiceHistoryProps {
   orders: Order[];
@@ -31,6 +32,8 @@ export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryP
   const [search, setSearch] = useState('');
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [loadingOrderId, setLoadingOrderId] = useState<number | null>(null);
+  const [editTarget, setEditTarget] = useState<{ order: Order; items: OrderItem[] } | null>(null);
+  const [editLoadingOrderId, setEditLoadingOrderId] = useState<number | null>(null);
 
   const applyMonth = (next: string) => {
     setMonth(next);
@@ -72,6 +75,26 @@ export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryP
     } finally {
       setLoadingOrderId(null);
     }
+  };
+
+  const handleEdit = async (order: Order) => {
+    setEditLoadingOrderId(order.id);
+    try {
+      const result = await getOrderForEditAction(order.id);
+      if (result.success && result.order && result.items) {
+        setEditTarget({ order: result.order, items: result.items });
+      } else {
+        toast.error(result.error || 'Failed to load invoice');
+      }
+    } finally {
+      setEditLoadingOrderId(null);
+    }
+  };
+
+  const handleSaved = (updatedReceipt: ReceiptData) => {
+    setEditTarget(null);
+    setReceipt(updatedReceipt);
+    router.refresh();
   };
 
   return (
@@ -137,13 +160,22 @@ export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryP
                   <SensitiveValue>{formatCurrency(order.grand_total)}</SensitiveValue>
                 </TableCell>
                 <TableCell>
-                  <button
-                    onClick={() => handleView(order)}
-                    disabled={loadingOrderId === order.id}
-                    className="text-xs text-cyan hover:underline font-semibold disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {loadingOrderId === order.id ? 'Loading…' : 'View / Reprint'}
-                  </button>
+                  <div className="flex items-center gap-3 whitespace-nowrap">
+                    <button
+                      onClick={() => handleView(order)}
+                      disabled={loadingOrderId === order.id}
+                      className="text-xs text-cyan hover:underline font-semibold disabled:opacity-50"
+                    >
+                      {loadingOrderId === order.id ? 'Loading…' : 'View / Reprint'}
+                    </button>
+                    <button
+                      onClick={() => handleEdit(order)}
+                      disabled={editLoadingOrderId === order.id}
+                      className="text-xs text-gray-400 hover:text-white hover:underline font-semibold disabled:opacity-50"
+                    >
+                      {editLoadingOrderId === order.id ? 'Loading…' : 'Edit'}
+                    </button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -152,6 +184,7 @@ export default function InvoiceHistory({ orders, initialMonth }: InvoiceHistoryP
       </div>
 
       <InvoiceReceiptModal receipt={receipt} onClose={() => setReceipt(null)} closeLabel="Close" />
+      <InvoiceEditModal target={editTarget} onClose={() => setEditTarget(null)} onSaved={handleSaved} />
     </div>
   );
 }

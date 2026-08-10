@@ -9,12 +9,20 @@ import {
   linkOrderTransaction,
   getOrders,
   getOrderWithItems,
+  updateOrder,
+  replaceOrderItems,
 } from '@/lib/erp/billing';
-import { insertLedgerEntry } from '@/lib/erp/finance';
+import { insertLedgerEntry, updateLedgerEntryById } from '@/lib/erp/finance';
 import { getClientByName } from '@/lib/erp/clients';
 import { computeGstBreakdown, round2Amount } from '@/lib/billing-tax';
 import { revalidatePath } from 'next/cache';
-import type { Order, ProcessServiceInvoiceResult, ReceiptData, ReceiptLineItem } from '@/types/billing';
+import type {
+  GetOrderForEditResult,
+  Order,
+  ProcessServiceInvoiceResult,
+  ReceiptData,
+  ReceiptLineItem,
+} from '@/types/billing';
 
 const lineItemSchema = z.object({
   description: z.string().trim().min(1, 'Description is required'),
@@ -24,6 +32,14 @@ const lineItemSchema = z.object({
 
 const processServiceInvoiceSchema = z.object({
   clientName: z.string().trim().min(1, 'Client name is required'),
+  paymentMethod: z.enum(['CASH', 'UPI', 'BANK_TRANSFER']),
+  items: z.array(lineItemSchema).min(1, 'Add at least one line item'),
+  notes: z.string().trim().nullable().optional(),
+});
+
+// Deliberately has no clientName field — invoice_number and client_name are
+// fixed once an invoice exists and can't be changed via edit.
+const updateServiceInvoiceSchema = z.object({
   paymentMethod: z.enum(['CASH', 'UPI', 'BANK_TRANSFER']),
   items: z.array(lineItemSchema).min(1, 'Add at least one line item'),
   notes: z.string().trim().nullable().optional(),
@@ -147,6 +163,138 @@ export async function processServiceInvoice(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to process invoice',
+    };
+  }
+}
+
+/**
+ * Fetch a past invoice's editable fields (raw items with rate, not
+ * receipt-formatted) for the edit form.
+ */
+export async function getOrderForEditAction(orderId: number): Promise<GetOrderForEditResult> {
+  try {
+    await requireRole(['admin', 'hr']);
+
+    const result = await getOrderWithItems(orderId);
+    if (!result) {
+      return { success: false, error: 'Invoice not found' };
+    }
+
+    return { success: true, order: result.order, items: result.items };
+  } catch (error) {
+    console.error('Get order for edit error:', error);
+    return { success: false, error: 'Failed to load invoice' };
+  }
+}
+
+/**
+ * Edit an existing invoice's line items, payment method, and notes.
+ * invoice_number and client_name are immutable by design — this action
+ * never accepts them.
+ */
+export async function updateServiceInvoice(
+  orderId: number,
+  input: z.infer<typeof updateServiceInvoiceSchema>,
+): Promise<ProcessServiceInvoiceResult> {
+  try {
+    const session = await requireRole(['admin', 'hr']);
+
+    const { paymentMethod, items, notes } = updateServiceInvoiceSchema.parse(input);
+
+    const existing = await getOrderWithItems(orderId);
+    if (!existing) {
+      return { success: false, error: 'Invoice not found' };
+    }
+    const { order } = existing;
+
+    const linedItems = items.map((item) => ({
+      ...item,
+      lineTotal: round2Amount(item.quantity * item.rate),
+    }));
+
+    const grandTotal = round2Amount(linedItems.reduce((sum, item) => sum + item.lineTotal, 0));
+    const { taxableValue, cgstAmount, sgstAmount } = computeGstBreakdown(grandTotal);
+
+    await updateOrder(orderId, {
+      payment_method: paymentMethod,
+      taxable_value: taxableValue,
+      cgst_amount: cgstAmount,
+      sgst_amount: sgstAmount,
+      grand_total: grandTotal,
+      notes: notes || null,
+    });
+
+    await replaceOrderItems(
+      orderId,
+      linedItems.map(({ lineTotal, ...item }) => item),
+    );
+
+    revalidatePath('/erp/billing');
+
+    // Soft-fail finance sync, matching processServiceInvoice — the invoice
+    // edit has already been committed by this point.
+    let financeSyncFailed = false;
+    if (order.linked_transaction_id) {
+      try {
+        const description = linedItems
+          .map((item) => item.description)
+          .join('; ')
+          .slice(0, 1000);
+
+        await updateLedgerEntryById(
+          order.linked_transaction_id,
+          {
+            amount: grandTotal,
+            payment_mode: paymentMethod,
+            description,
+            notes: notes || null,
+          },
+          session.userId,
+        );
+        revalidatePath('/erp/finances');
+      } catch (syncError) {
+        console.error(`Finance sync failed updating invoice ${order.invoice_number}:`, syncError);
+        financeSyncFailed = true;
+      }
+    }
+
+    const receiptItems: ReceiptLineItem[] = linedItems.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      lineTotal: item.lineTotal,
+    }));
+
+    const matchedClient = await getClientByName(order.client_name);
+
+    return {
+      success: true,
+      financeSyncFailed,
+      orderId,
+      orderNumber: `ORD-${String(orderId).padStart(6, '0')}`,
+      invoiceNumber: order.invoice_number,
+      receipt: {
+        invoiceNumber: order.invoice_number,
+        orderNumber: `ORD-${String(orderId).padStart(6, '0')}`,
+        createdAt: order.created_at,
+        paymentMethod,
+        clientName: order.client_name,
+        clientPhone: matchedClient?.phone ?? null,
+        clientGstin: matchedClient?.gstin ?? null,
+        items: receiptItems,
+        taxableValue,
+        cgstAmount,
+        sgstAmount,
+        grandTotal,
+      },
+    };
+  } catch (error) {
+    console.error('Update service invoice error:', error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update invoice',
     };
   }
 }
