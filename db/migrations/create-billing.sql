@@ -31,14 +31,17 @@ CREATE TABLE IF NOT EXISTS order_items (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Sequential invoice numbering: INV-001, INV-002, ...
+-- 3. Sequential invoice numbering: XLU-2026-0001, XLU-2026-0002, ...
+-- The serial keeps counting up across years (no reset each January/April) —
+-- only the year segment changes to reflect when the invoice was created.
 CREATE SEQUENCE IF NOT EXISTS orders_invoice_number_seq START WITH 1;
 
 CREATE OR REPLACE FUNCTION set_order_invoice_number()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.invoice_number IS NULL THEN
-        NEW.invoice_number := 'INV-' || LPAD(nextval('orders_invoice_number_seq')::TEXT, 3, '0');
+        NEW.invoice_number := 'XLU-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' ||
+            LPAD(nextval('orders_invoice_number_seq')::TEXT, 4, '0');
     END IF;
     RETURN NEW;
 END;
