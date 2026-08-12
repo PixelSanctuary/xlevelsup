@@ -7,6 +7,7 @@ import Testimonials from '@/components/sections/Testimonials';
 import FAQ from '@/components/sections/FAQ';
 import Contact from '@/components/sections/Contact';
 import LeadMagnetPopup from '@/components/LeadMagnetPopup';
+import { SnapScroll, SnapSection } from '@/components/marketing/SnapScroll';
 
 export const dynamic = 'force-static';
 export const revalidate = 86400;
@@ -88,13 +89,33 @@ export default function Home() {
         type='application/ld+json'
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-      <Hero />
-      <Services />
-      <SocialProof />
-      <About />
-      <Testimonials />
-      <FAQ />
-      <Contact />
+      {/* Snap is `proximity`, so it only assists near a boundary and never
+          traps a user inside a section taller than their screen.
+          `snapOnMobile` is opt-in per section: only the hero reliably fits a
+          phone viewport, so only the hero snaps on touch. */}
+      <SnapScroll>
+        <SnapSection snapOnMobile>
+          <Hero />
+        </SnapSection>
+        <SnapSection>
+          <Services />
+        </SnapSection>
+        <SnapSection>
+          <SocialProof />
+        </SnapSection>
+        <SnapSection>
+          <About />
+        </SnapSection>
+        <SnapSection>
+          <Testimonials />
+        </SnapSection>
+        <SnapSection>
+          <FAQ />
+        </SnapSection>
+        <SnapSection>
+          <Contact />
+        </SnapSection>
+      </SnapScroll>
       <LeadMagnetPopup />
     </main>
   );

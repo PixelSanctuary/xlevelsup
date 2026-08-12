@@ -1,7 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { m as motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { springDefault, revealViewport } from '@/components/marketing/motion';
+import XluButton from '@/components/marketing/XluButton';
+
+/**
+ * FAQ accordion.
+ *
+ * Restyled onto the new type system: hairline rows rather than stacked glass
+ * cards, question at h3 scale, generous row rhythm.
+ *
+ * §7  the chevron rotates one way open and unwinds the same way closed —
+ *     the exit path mirrors the entry path.
+ * §14 height animation is replaced by an instant open under reduced-motion,
+ *     since an expanding box is the vestibular part.
+ *
+ * All 5 questions and answers are unchanged.
+ */
 
 const faqs = [
     {
@@ -36,127 +52,185 @@ const faqs = [
     },
 ];
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-        opacity: 1,
-        transition: { staggerChildren: 0.1 },
-    },
-};
-
-const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-};
-
 export default function FAQ() {
     const [openId, setOpenId] = useState<number | null>(null);
+    const reduced = useReducedMotion();
 
     const toggle = (id: number) => setOpenId(openId === id ? null : id);
 
+    const fade = reduced
+        ? { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.25 } } }
+        : {
+              hidden: { opacity: 0, y: 16 },
+              visible: { opacity: 1, y: 0, transition: springDefault },
+          };
+
     return (
-        <section className="py-24 px-4 relative" id="faq">
-            <div className="max-w-4xl mx-auto">
-                {/* Section header */}
-                <motion.div
-                    className="text-center mb-16"
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6 }}
-                >
-                    <p className="text-cyan text-sm font-semibold tracking-widest uppercase mb-4">
-                        Common Questions
-                    </p>
-                    <h2 className="text-4xl md:text-5xl font-bold mb-4">
-                        Frequently Asked{' '}
-                        <span className="gradient-text">Questions</span>
-                    </h2>
-                    <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                        Everything you need to know before we get started.
-                    </p>
-                </motion.div>
+        <section className='xlu xlu-section relative' id='faq'>
+            <div className='xlu-container'>
+                <div className='mx-auto max-w-[42rem]'>
+                    {/* Header — centred. Renders immediately rather than waiting on a
+                        scroll-triggered reveal: a section heading is read-on-load
+                        content, not something that should ever be invisible while a
+                        user is still deciding whether to scroll toward it. */}
+                    <div className='mb-[var(--xlu-space-xl)] text-center'>
+                        <p
+                            className='mb-4 text-sm font-semibold uppercase tracking-widest'
+                            style={{ color: 'var(--xlu-brand-1)' }}
+                        >
+                            Common Questions
+                        </p>
+                        <h2 className='mb-4 text-[1.875rem] sm:text-4xl font-bold leading-tight tracking-[-0.02em] md:text-5xl'>
+                            Frequently Asked <span className='xlu-brand-text'>Questions</span>
+                        </h2>
+                        <p className='text-lg' style={{ color: 'var(--xlu-ink-subtle)' }}>
+                            Everything you need to know before we get started.
+                        </p>
+                    </div>
 
-                {/* Accordion items */}
-                <motion.div
-                    className="space-y-4"
-                    variants={containerVariants}
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true }}
-                >
-                    {faqs.map((faq) => {
-                        const isOpen = openId === faq.id;
-                        return (
-                            <motion.div
-                                key={faq.id}
-                                variants={itemVariants}
-                                className="glass rounded-2xl overflow-hidden"
-                            >
-                                <button
-                                    onClick={() => toggle(faq.id)}
-                                    className="w-full px-8 py-6 text-left flex items-center justify-between hover:bg-white/5 transition-colors duration-200 cursor-pointer"
-                                    aria-expanded={isOpen}
+                    {/* Accordion */}
+                    <motion.div
+                        initial='hidden'
+                        whileInView='visible'
+                        viewport={revealViewport}
+                        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+                    >
+                        {faqs.map((faq, i) => {
+                            const isOpen = openId === faq.id;
+                            return (
+                                <motion.div
+                                    key={faq.id}
+                                    variants={fade}
+                                    // Each row is its own surface that MATERIALIZES when
+                                    // opened — border and background lift together rather
+                                    // than the panel just unfurling from a flat rule
+                                    // (apple-design §12: a real material arriving).
+                                    className='group relative mb-3 overflow-hidden rounded-2xl border transition-colors duration-[var(--xlu-dur-base)]'
+                                    style={{
+                                        borderColor: isOpen
+                                            ? 'color-mix(in srgb, var(--xlu-brand-1) 40%, transparent)'
+                                            : 'var(--xlu-hairline)',
+                                        background: isOpen ? 'var(--xlu-surface-1)' : 'transparent',
+                                    }}
                                 >
-                                    <h3 className="text-lg font-semibold text-white pr-4">
-                                        {faq.question}
-                                    </h3>
-                                    <svg
-                                        className={`w-5 h-5 text-cyan flex-shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                        viewBox="0 0 24 24"
-                                        aria-hidden="true"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
+                                    {/* Accent glow, only while open */}
+                                    <div
+                                        aria-hidden
+                                        className='pointer-events-none absolute inset-0 transition-opacity duration-[var(--xlu-dur-slow)]'
+                                        style={{
+                                            opacity: isOpen ? 1 : 0,
+                                            background:
+                                                'radial-gradient(ellipse 60% 100% at 0% 0%, rgba(18,229,254,0.08), transparent 70%)',
+                                        }}
+                                    />
 
-                                <AnimatePresence initial={false}>
-                                    {isOpen && (
-                                        <motion.div
-                                            key="answer"
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: 'auto', opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            transition={{ duration: 0.3, ease: 'easeInOut' }}
-                                            className="overflow-hidden"
+                                    <h3 className='relative'>
+                                        <button
+                                            onClick={() => toggle(faq.id)}
+                                            aria-expanded={isOpen}
+                                            aria-controls={`faq-panel-${faq.id}`}
+                                            id={`faq-trigger-${faq.id}`}
+                                            className='flex w-full cursor-pointer items-start gap-4 px-[var(--xlu-space-md)] py-[var(--xlu-space-md)] text-left transition-colors duration-[var(--xlu-dur-base)] hover:text-[var(--xlu-brand-1)]'
                                         >
-                                            <div className="px-8 pb-6 pt-0 border-t border-white/10">
-                                                <p className="text-gray-300 leading-relaxed pt-5">
+                                            {/* Node index — same connected-node grammar as
+                                                the hero rail and About funnel */}
+                                            <span
+                                                aria-hidden
+                                                className='mt-1 shrink-0 font-mono text-[0.75rem] transition-colors duration-[var(--xlu-dur-base)]'
+                                                style={{
+                                                    color: isOpen ? 'var(--xlu-brand-1)' : 'var(--xlu-ink-faint)',
+                                                }}
+                                            >
+                                                0{i + 1}
+                                            </span>
+
+                                            <span className='flex-1 text-lg font-semibold'>
+                                                {faq.question}
+                                            </span>
+
+                                            {/* Plus that morphs to minus — the vertical bar
+                                                rotates and fades, so open/close mirror each
+                                                other exactly (§7 symmetric paths). */}
+                                            <span
+                                                aria-hidden
+                                                className='relative mt-1.5 h-[1.05rem] w-[1.05rem] shrink-0'
+                                                style={{ color: 'var(--xlu-brand-1)' }}
+                                            >
+                                                <span
+                                                    className='absolute left-0 top-1/2 h-[1.5px] w-full -translate-y-1/2 rounded-full'
+                                                    style={{ background: 'currentColor' }}
+                                                />
+                                                <span
+                                                    className='absolute left-1/2 top-0 h-full w-[1.5px] -translate-x-1/2 rounded-full transition-[transform,opacity] duration-[var(--xlu-dur-base)] ease-[var(--xlu-ease-out)]'
+                                                    style={{
+                                                        background: 'currentColor',
+                                                        transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                        opacity: isOpen ? 0 : 1,
+                                                    }}
+                                                />
+                                            </span>
+                                        </button>
+                                    </h3>
+
+                                    <AnimatePresence initial={false}>
+                                        {isOpen && (
+                                            <motion.div
+                                                key='answer'
+                                                id={`faq-panel-${faq.id}`}
+                                                role='region'
+                                                aria-labelledby={`faq-trigger-${faq.id}`}
+                                                initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                                                animate={reduced ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+                                                exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                                                transition={
+                                                    reduced
+                                                        ? { duration: 0.2 }
+                                                        : { duration: 0.32, ease: [0.22, 1, 0.36, 1] }
+                                                }
+                                                className='relative overflow-hidden'
+                                            >
+                                                <p
+                                                    className='px-[var(--xlu-space-md)] pb-[var(--xlu-space-lg)] pl-[calc(var(--xlu-space-md)+2.25rem)] leading-[1.7]'
+                                                    style={{ color: 'var(--xlu-ink-muted)', maxWidth: 'var(--xlu-measure)' }}
+                                                >
                                                     {faq.answer}
                                                 </p>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </motion.div>
-                        );
-                    })}
-                </motion.div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            );
+                        })}
 
-                {/* Bottom CTA */}
-                <motion.div
-                    className="mt-16 text-center"
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6 }}
-                >
-                    <p className="text-gray-400 mb-6 text-lg">
-                        Still have questions? Let&apos;s talk.
-                    </p>
-                    <a
-                        href="#contact"
-                        className="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-linear-to-r from-cyan to-purple text-white font-bold text-lg hover:shadow-lg hover:shadow-cyan/30 transition-all duration-300 hover:scale-105"
-                    >
-                        Book a Free Growth Audit
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                        </svg>
-                    </a>
-                </motion.div>
+                        {/* Bottom CTA */}
+                        <motion.div
+                            variants={fade}
+                            // Centred on mobile to match the rest of the section;
+                            // `items-start` left-aligned this row while every
+                            // heading above it was centred.
+                            className='mt-[var(--xlu-space-xl)] flex flex-col items-center gap-[var(--xlu-space-md)] text-center sm:flex-row sm:items-center sm:justify-between sm:text-left'
+                        >
+                            <p className='text-lg' style={{ color: 'var(--xlu-ink-muted)' }}>
+                                Still have questions? Let&apos;s talk.
+                            </p>
+                            {/* Same button component used sitewide — see XluButton for
+                                the shared magnetic-pull + sheen treatment. */}
+                            <XluButton href='#contact' variant='primary' className='shrink-0'>
+                                Book a Free Growth Audit
+                                <svg
+                                    className='h-[1.05rem] w-[1.05rem] transition-transform duration-[var(--xlu-dur-base)] ease-[var(--xlu-ease-out)] group-hover:translate-x-1'
+                                    fill='none'
+                                    stroke='currentColor'
+                                    strokeWidth='2'
+                                    viewBox='0 0 24 24'
+                                    aria-hidden='true'
+                                >
+                                    <path strokeLinecap='round' strokeLinejoin='round' d='M17 8l4 4m0 0l-4 4m4-4H3' />
+                                </svg>
+                            </XluButton>
+                        </motion.div>
+                    </motion.div>
+                </div>
             </div>
         </section>
     );
