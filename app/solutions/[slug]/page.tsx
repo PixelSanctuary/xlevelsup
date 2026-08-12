@@ -42,7 +42,7 @@ export default function MarketingArchitecturePage() {
                             <EmojiIcon emoji="⚡" className="w-10 h-10 text-white" />
                         </div>
                     </div>
-                    <h1 className="text-5xl md:text-6xl font-bold mb-6">
+                    <h1 className="text-[2.5rem] sm:text-5xl md:text-6xl font-bold mb-6">
                         Built for <span className="gradient-text">Speed</span>.
                         <br />
                         Designed to <span className="gradient-text">Convert</span>.

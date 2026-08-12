@@ -43,7 +43,11 @@ export default function Navbar() {
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'glass shadow-lg' : 'bg-transparent'
                 }`}
         >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Uses the same container as page content (.xlu-container) so the
+                logo's left edge lines up with the headings below it. The old
+                `max-w-7xl px-4 sm:px-6 lg:px-8` was a different width AND a
+                different gutter, leaving up to 32px of misalignment at 1280px. */}
+            <div className="xlu-container">
                 <div className="flex items-center justify-between h-20">
                     {/* Logo */}
                     <Link href="/" className="flex items-center">

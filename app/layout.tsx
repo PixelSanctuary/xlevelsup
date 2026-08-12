@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import ConditionalLayout from '@/components/layout/ConditionalLayout';
 import Script from 'next/script';
@@ -9,6 +9,14 @@ import AnimationProvider from '@/components/AnimationProvider';
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
+});
+
+// Exposed as a CSS variable so marketing components can reference it through
+// the --xlu-font-mono token rather than hardcoding a family name.
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-jetbrains-mono',
 });
 
 export const metadata: Metadata = {
@@ -112,7 +120,7 @@ export default function RootLayout({
         <link rel='preconnect' href='https://www.googletagmanager.com' />
         <link rel='dns-prefetch' href='https://www.googletagmanager.com' />
       </head>
-      <body className={`${inter.className} antialiased`}>
+      <body className={`${inter.className} ${jetbrainsMono.variable} antialiased`}>
         <AnimationProvider>
           <ToastProvider />
           <ConditionalLayout>{children}</ConditionalLayout>

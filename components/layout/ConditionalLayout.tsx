@@ -1,10 +1,18 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import WhatsAppButton from '@/components/ui/WhatsAppButton';
-import InstagramReels from '@/components/sections/InstagramReels';
+import Preloader from '@/components/marketing/Preloader';
+
+const WhatsAppButton = dynamic(() => import('@/components/ui/WhatsAppButton'), {
+  ssr: false,
+});
+
+const InstagramReels = dynamic(() => import('@/components/sections/InstagramReels'), {
+  ssr: false,
+});
 
 export default function ConditionalLayout({
   children,
@@ -18,6 +26,9 @@ export default function ConditionalLayout({
 
   return (
     <>
+      {/* Marketing only — never covers ERP or employee screens. Self-gates to
+          once per session via sessionStorage. */}
+      {isPublicRoute && <Preloader />}
       {!isERPRoute && <Navbar />}
       <div className={isERPRoute ? '' : 'pt-20'}>{children}</div>
       {isPublicRoute && <InstagramReels />}

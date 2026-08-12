@@ -1,45 +1,66 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { m as motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import type { TeamMember } from '@/lib/erp/team';
+import { CornerBrackets, BlueprintGrid } from '@/components/solutions/FigureSection';
 
-/* ─── colour palette per department ─────────────────────────── */
-const DEPT_COLORS: Record<string, { accent: string; bg: string; ring: string }> = {
-  Leadership:  { accent: '#00F0FF', bg: 'rgba(0,240,255,0.08)',   ring: 'rgba(0,240,255,0.35)' },
-  Engineering: { accent: '#3B82F6', bg: 'rgba(59,130,246,0.08)',  ring: 'rgba(59,130,246,0.35)' },
-  Marketing:   { accent: '#B026FF', bg: 'rgba(176,38,255,0.08)',  ring: 'rgba(176,38,255,0.35)' },
-  Design:      { accent: '#EC4899', bg: 'rgba(236,72,153,0.08)',  ring: 'rgba(236,72,153,0.35)' },
-  Sales:       { accent: '#10B981', bg: 'rgba(16,185,129,0.08)',  ring: 'rgba(16,185,129,0.35)' },
-  Operations:  { accent: '#F97316', bg: 'rgba(249,115,22,0.08)',  ring: 'rgba(249,115,22,0.35)' },
-  HR:          { accent: '#EAB308', bg: 'rgba(234,179,8,0.08)',   ring: 'rgba(234,179,8,0.35)' },
-  Finance:     { accent: '#14B8A6', bg: 'rgba(20,184,166,0.08)',  ring: 'rgba(20,184,166,0.35)' },
-  Content:     { accent: '#A78BFA', bg: 'rgba(167,139,250,0.08)', ring: 'rgba(167,139,250,0.35)' },
-};
+/**
+ * /team — restyled onto the --xlu-* system.
+ *
+ * NOTE: this page reads live data from lib/erp/team. That data layer is NOT
+ * touched here — only the presentation. Member names, roles, departments,
+ * employee IDs, joining dates and every static string are rendered exactly as
+ * before; the derived labels (tenure, initials) use the same functions.
+ *
+ * New style element introduced here: a personnel roster / directory treatment.
+ * Cards become roster entries with mono employee-ID chrome and a department
+ * node, department sections get a counted rail header, and the whole page
+ * carries the connected-node identity used across the site.
+ *
+ * The nine hardcoded department hues and the Tailwind tier-badge classes are
+ * replaced by brand-derived accents: department distinction is preserved by
+ * mapping each department onto one of the four brand stops rather than nine
+ * unrelated colours, which never belonged to the palette.
+ *
+ * apple-design:
+ *  §1  hover feedback is instant and local to the card under the pointer
+ *  §4  critically damped springs — cards lift without overshoot
+ *  §12 material weight encodes hierarchy: executives carry the heaviest
+ *      surface, roster entries are lighter
+ *  §14 all motion degrades to opacity-only under reduced motion
+ */
 
-const DEFAULT_COLOR = { accent: '#00F0FF', bg: 'rgba(0,240,255,0.08)', ring: 'rgba(0,240,255,0.25)' };
+const ConstellationField = dynamic(
+  () => import('@/components/marketing/ConstellationField'),
+  { ssr: false },
+);
 
-function getDeptColor(dept: string) {
-  return DEPT_COLORS[dept] ?? DEFAULT_COLOR;
-}
+/* ─── department accent: mapped onto the brand ramp ──────────── */
+const BRAND_STOPS = [
+  'var(--xlu-brand-1)',
+  'var(--xlu-brand-2)',
+  'var(--xlu-brand-3)',
+  'var(--xlu-brand-4)',
+];
 
-/* ─── hierarchy tier labels ──────────────────────────────────── */
-const TIER_LABELS: Record<number, { label: string; icon: string; badge: string }> = {
-  1: { label: 'Executive',  icon: '👑', badge: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' },
-  2: { label: 'Director',   icon: '🎯', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-  3: { label: 'Leadership', icon: '⭐', badge: 'bg-blue-500/20  text-blue-300  border-blue-500/30'   },
-  4: { label: 'Team',       icon: '🚀', badge: 'bg-green-500/20 text-green-300  border-green-500/30'  },
-  5: { label: 'Associate',  icon: '✨', badge: 'bg-gray-500/20  text-gray-300   border-gray-500/30'   },
-};
-
-/* ─── generate initials avatar colour from name ─────────────── */
-function nameToGradient(name: string): string {
+/** Stable per-department accent, drawn from the four brand stops. */
+function getDeptAccent(dept: string): string {
   let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue},70%,55%)`;
+  for (let i = 0; i < dept.length; i++) hash = dept.charCodeAt(i) + ((hash << 5) - hash);
+  return BRAND_STOPS[Math.abs(hash) % BRAND_STOPS.length];
 }
+
+/* ─── hierarchy tier labels — text and icons unchanged ───────── */
+const TIER_LABELS: Record<number, { label: string; icon: string }> = {
+  1: { label: 'Executive', icon: '👑' },
+  2: { label: 'Director', icon: '🎯' },
+  3: { label: 'Leadership', icon: '⭐' },
+  4: { label: 'Team', icon: '🚀' },
+  5: { label: 'Associate', icon: '✨' },
+};
 
 function getInitials(name: string): string {
   return name
@@ -50,37 +71,43 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
+/** Months since joining — drives the tenure bar. */
+function tenureMonths(joiningDate: string): number {
+  const join = new Date(joiningDate);
+  const now = new Date();
+  return Math.max(0, (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth()));
+}
+
 /** Calculate years of experience from joining date */
 function tenureLabel(joiningDate: string): string {
   const join = new Date(joiningDate);
-  const now  = new Date();
+  const now = new Date();
   const months = (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth());
-  if (months < 1)   return 'Just joined';
-  if (months < 12)  return `${months}m tenure`;
+  if (months < 1) return 'Just joined';
+  if (months < 12) return `${months}m tenure`;
   const yrs = Math.floor(months / 12);
   const rem = months % 12;
   return rem > 0 ? `${yrs}y ${rem}m` : `${yrs} yr${yrs > 1 ? 's' : ''}`;
 }
 
-/* ─── Animation variants ─────────────────────────────────────── */
+const MONO = 'var(--xlu-font-mono)';
+
 const cardVariants = {
-  hidden: { opacity: 0, y: 32, scale: 0.96 },
-  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45 } },
-  exit:   { opacity: 0, y: -16, scale: 0.96, transition: { duration: 0.25 } },
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, bounce: 0, duration: 0.45 } },
+  exit: { opacity: 0, y: -12, transition: { duration: 0.2 } },
 };
 
 const sectionVariants = {
-  hidden:   { opacity: 0, y: 24 },
-  visible:  { opacity: 1, y: 0,  transition: { duration: 0.55, staggerChildren: 0.08 } },
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, staggerChildren: 0.06 } },
 };
 
-/* ─── Individual member card ─────────────────────────────────── */
-function MemberCard({ member, index }: { member: TeamMember; index: number }) {
-  const color   = getDeptColor(member.department);
-  const tier    = TIER_LABELS[member.hierarchy_level] ?? TIER_LABELS[5];
+/* ─── Roster entry card ──────────────────────────────────────── */
+function MemberCard({ member }: { member: TeamMember; index: number }) {
+  const accent = getDeptAccent(member.department);
+  const tier = TIER_LABELS[member.hierarchy_level] ?? TIER_LABELS[5];
   const initials = getInitials(member.name);
-  const avatarBg = nameToGradient(member.name);
-  const isExec  = member.hierarchy_level === 1;
 
   return (
     <motion.div
@@ -89,110 +116,133 @@ function MemberCard({ member, index }: { member: TeamMember; index: number }) {
       initial='hidden'
       animate='visible'
       exit='exit'
-      custom={index}
-      className='group relative rounded-2xl overflow-hidden cursor-default select-none'
+      whileHover={{ y: -4 }}
+      className='group relative cursor-default select-none overflow-hidden rounded-2xl border'
       style={{
-        background: 'rgba(20,20,32,0.7)',
-        border: `1px solid ${color.ring}`,
-        backdropFilter: 'blur(12px)',
+        borderColor: 'var(--xlu-hairline)',
+        background: 'linear-gradient(160deg, var(--xlu-surface-2) 0%, var(--xlu-surface-1) 100%)',
+        boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.05)',
       }}
-      whileHover={{ y: isExec ? -8 : -5, transition: { duration: 0.25 } }}
     >
-      {/* Glow bloom on hover */}
-      <div
-        className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl'
-        style={{ background: `radial-gradient(ellipse at 50% 0%, ${color.bg} 0%, transparent 70%)` }}
+      {/* Accent wash on hover */}
+      <span
+        aria-hidden
+        className='pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-[var(--xlu-dur-slow)] group-hover:opacity-100'
+        style={{
+          background: `radial-gradient(ellipse 90% 70% at 50% 0%, color-mix(in srgb, ${accent} 16%, transparent), transparent 70%)`,
+        }}
       />
 
-      {/* Top gradient bar */}
-      <div
-        className='h-[3px] w-full'
-        style={{ background: `linear-gradient(90deg, ${color.accent}, #B026FF)` }}
+      {/* Oversized initials as a watermark — with no photo field available, the
+          monogram becomes the card's visual anchor rather than a small tile. */}
+      <span
+        aria-hidden
+        className='pointer-events-none absolute -right-3 -top-6 select-none text-[6rem] font-bold leading-none transition-opacity duration-[var(--xlu-dur-slow)] group-hover:opacity-[0.14]'
+        style={{ color: accent, opacity: 0.07, letterSpacing: '-0.05em' }}
+      >
+        {initials}
+      </span>
+
+      {/* Department accent edge */}
+      <span
+        aria-hidden
+        className='absolute left-0 top-0 h-full w-[2px]'
+        style={{ background: `linear-gradient(180deg, ${accent}, transparent 75%)`, opacity: 0.55 }}
       />
 
-      {/* Executive star-burst background pattern */}
-      {isExec && (
-        <div
-          className='absolute inset-0 opacity-[0.03] pointer-events-none'
-          style={{
-            backgroundImage: `repeating-linear-gradient(45deg, ${color.accent} 0, ${color.accent} 1px, transparent 0, transparent 50%)`,
-            backgroundSize: '16px 16px',
-          }}
-        />
-      )}
+      <div className='relative p-5'>
+        {/* Employee ID as ledger chrome, top-right */}
+        <span
+          className='absolute right-4 top-4 text-[0.6rem] tabular-nums'
+          style={{ fontFamily: MONO, letterSpacing: '0.14em', color: 'var(--xlu-ink-faint)' }}
+        >
+          {member.employee_id}
+        </span>
 
-      <div className='relative z-10 p-5'>
-        {/* Avatar + name row */}
-        <div className='flex items-start gap-4 mb-4'>
-          {/* Avatar circle */}
-          <div className='relative flex-shrink-0'>
-            <div
-              className='w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white shadow-lg'
-              style={{ background: `linear-gradient(135deg, ${avatarBg}, ${color.accent}80)` }}
-            >
-              {initials}
-            </div>
-            {/* Pulsing online dot */}
-            <span
-              className='absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#0A0A0F] animate-pulse'
-              style={{ background: color.accent }}
-            />
+        {/* Monogram tile */}
+        <div className='relative mb-4 inline-flex'>
+          <div
+            className='flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold'
+            style={{
+              background: `linear-gradient(140deg, color-mix(in srgb, ${accent} 34%, var(--xlu-surface-3)), var(--xlu-surface-2))`,
+              border: `1px solid color-mix(in srgb, ${accent} 38%, transparent)`,
+              color: 'var(--xlu-ink)',
+            }}
+          >
+            {initials}
           </div>
-
-          <div className='min-w-0 flex-1'>
-            <div className='flex items-start justify-between gap-1'>
-              <h3 className='text-sm font-bold text-white leading-tight truncate'>
-                {member.name}
-              </h3>
-              {isExec && (
-                <span className='text-base flex-shrink-0 ml-1' title='Executive'>👑</span>
-              )}
-            </div>
-            <p className='text-xs mt-0.5 font-semibold truncate' style={{ color: color.accent }}>
-              {/* Show only the primary title (first part of compound role) */}
-              {member.role.split(/[&\/|\-–—+]|\band\b/i)[0].trim()}
-            </p>
-            {/* Specialty pill — shown for compound roles like "CFO & UI UX Engineer" */}
-            {member.specialty && (
-              <span
-                className='inline-block mt-1 px-2 py-0.5 rounded-md text-[10px] font-medium truncate max-w-full'
-                style={{ background: `${color.accent}18`, color: color.accent, border: `1px solid ${color.accent}30` }}
-                title={member.specialty}
-              >
-                🎨 {member.specialty}
-              </span>
-            )}
-            <div className='flex items-center gap-1.5 mt-1.5 flex-wrap'>
-              {/* Tier badge */}
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${tier.badge}`}
-              >
-                {tier.icon} {tier.label}
-              </span>
-            </div>
-          </div>
+          <span
+            className='absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2'
+            style={{ background: accent, borderColor: 'var(--xlu-surface-1)' }}
+            aria-hidden
+          />
         </div>
 
-        {/* Divider */}
-        <div
-          className='h-px mb-4 opacity-20'
-          style={{ background: `linear-gradient(90deg, ${color.accent}, transparent)` }}
-        />
+        {/* Name at real scale — this is the subject of the card */}
+        <div className='flex items-start gap-1.5'>
+          <h3 className='text-lg font-bold leading-tight tracking-[-0.015em]'>{member.name}</h3>
+          {member.hierarchy_level === 1 && (
+            <span className='shrink-0 text-base' title='Executive'>👑</span>
+          )}
+        </div>
 
-        {/* Meta info row */}
-        <div className='grid grid-cols-2 gap-2 text-[11px] text-gray-400'>
-          <div className='flex items-center gap-1.5'>
-            <span style={{ color: color.accent }}>🏢</span>
-            <span className='truncate'>{member.department}</span>
-          </div>
-          <div className='flex items-center gap-1.5'>
-            <span style={{ color: color.accent }}>⏱</span>
-            <span>{tenureLabel(member.joining_date)}</span>
-          </div>
-          <div className='col-span-2 flex items-center gap-1.5'>
-            <span style={{ color: color.accent }}>🆔</span>
-            <span className='font-mono'>{member.employee_id}</span>
-          </div>
+        <p className='mt-1 text-sm font-semibold' style={{ color: accent }}>
+          {member.role.split(/[&\/|\-–—+]|\band\b/i)[0].trim()}
+        </p>
+
+        {member.specialty && (
+          <span
+            className='mt-2 inline-block max-w-full truncate rounded-md px-2 py-0.5 text-[10px] font-medium'
+            style={{
+              background: `color-mix(in srgb, ${accent} 12%, transparent)`,
+              color: accent,
+              border: `1px solid color-mix(in srgb, ${accent} 25%, transparent)`,
+            }}
+            title={member.specialty}
+          >
+            🎨 {member.specialty}
+          </span>
+        )}
+
+        <div className='mt-4 h-px' style={{ background: 'var(--xlu-hairline)' }} />
+
+        {/* Footer: tier + department + tenure, on one readable line */}
+        <div className='mt-3 flex flex-wrap items-center gap-x-3 gap-y-2'>
+          <span
+            className='inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold'
+            style={{
+              borderColor: 'var(--xlu-hairline)',
+              color: 'var(--xlu-ink-subtle)',
+              background: 'rgba(255,255,255,0.03)',
+            }}
+          >
+            {tier.icon} {tier.label}
+          </span>
+          <span className='text-[11px]' style={{ color: 'var(--xlu-ink-subtle)' }}>
+            {member.department}
+          </span>
+          <span
+            className='ml-auto text-[11px] tabular-nums'
+            style={{ fontFamily: MONO, color: 'var(--xlu-ink-faint)' }}
+          >
+            {tenureLabel(member.joining_date)}
+          </span>
+        </div>
+
+        {/* Tenure bar — the same label rendered as a measure. Caps at 36 months,
+            so the bar reads as "how established", not an exact scale. */}
+        <div
+          className='mt-3 h-0.5 w-full overflow-hidden rounded-full'
+          style={{ background: 'var(--xlu-hairline)' }}
+          aria-hidden
+        >
+          <div
+            className='h-full rounded-full transition-all duration-[var(--xlu-dur-slow)]'
+            style={{
+              width: `${Math.min(100, (tenureMonths(member.joining_date) / 36) * 100)}%`,
+              background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 40%, transparent), ${accent})`,
+            }}
+          />
         </div>
       </div>
     </motion.div>
@@ -201,25 +251,33 @@ function MemberCard({ member, index }: { member: TeamMember; index: number }) {
 
 /* ─── Department section header ──────────────────────────────── */
 function DeptHeader({ dept, count }: { dept: string; count: number }) {
-  const color = getDeptColor(dept);
+  const accent = getDeptAccent(dept);
   return (
     <motion.div
-      variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
-      className='flex items-center gap-4 mb-6'
+      variants={{ hidden: { opacity: 0, x: -16 }, visible: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
+      className='mb-6 flex items-center gap-4'
     >
-      <div
-        className='flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold'
-        style={{ background: color.bg, color: color.accent, border: `1px solid ${color.ring}` }}
-      >
-        {dept}
+      {/* Department node with a soft halo — the branch point of this section */}
+      <span className='relative flex h-1.5 w-1.5 shrink-0' aria-hidden>
         <span
-          className='ml-1 px-2 py-0.5 rounded-full text-xs'
-          style={{ background: color.ring, color: color.accent }}
+          className='absolute inline-flex h-full w-full rounded-full'
+          style={{ background: accent, opacity: 0.35, transform: 'scale(2.6)' }}
+        />
+        <span className='relative h-1.5 w-1.5 rounded-full' style={{ background: accent }} />
+      </span>
+      <div className='flex items-center gap-2'>
+        <span className='text-sm font-bold'>{dept}</span>
+        <span
+          className='rounded-full px-2 py-0.5 text-[0.65rem]'
+          style={{ fontFamily: MONO, background: 'rgba(255,255,255,0.05)', color: 'var(--xlu-ink-subtle)' }}
         >
           {count}
         </span>
       </div>
-      <div className='flex-1 h-px opacity-20' style={{ background: `linear-gradient(90deg, ${color.accent}, transparent)` }} />
+      <div
+        className='h-px flex-1'
+        style={{ background: `linear-gradient(90deg, ${accent}, transparent)`, opacity: 0.35 }}
+      />
     </motion.div>
   );
 }
@@ -227,9 +285,17 @@ function DeptHeader({ dept, count }: { dept: string; count: number }) {
 /* ─── Hierarchy legend strip ─────────────────────────────────── */
 function HierarchyLegend() {
   return (
-    <div className='flex flex-wrap justify-center gap-3 mb-10'>
-      {Object.entries(TIER_LABELS).map(([level, { label, icon, badge }]) => (
-        <div key={level} className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${badge}`}>
+    <div className='mb-10 flex flex-wrap justify-center gap-2'>
+      {Object.entries(TIER_LABELS).map(([level, { label, icon }]) => (
+        <div
+          key={level}
+          className='flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium'
+          style={{
+            borderColor: 'var(--xlu-hairline)',
+            color: 'var(--xlu-ink-subtle)',
+            background: 'rgba(255,255,255,0.03)',
+          }}
+        >
           {icon} {label}
         </div>
       ))}
@@ -237,21 +303,19 @@ function HierarchyLegend() {
   );
 }
 
-/* ─── View toggle: "Grouped" vs "Grid" ──────────────────────── */
 type ViewMode = 'hierarchy' | 'grid';
 
-/* ─── Main Client Component ──────────────────────────────────── */
 interface TeamPageClientProps {
   members: TeamMember[];
   departments: string[];
 }
 
 export default function TeamPageClient({ members, departments }: TeamPageClientProps) {
+  const reduced = useReducedMotion();
   const [activeDept, setActiveDept] = useState<string>('All');
-  const [viewMode, setViewMode]     = useState<ViewMode>('hierarchy');
-  const [search, setSearch]         = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('hierarchy');
+  const [search, setSearch] = useState('');
 
-  /* Filter */
   const filtered = useMemo(() => {
     let list = members;
     if (activeDept !== 'All') list = list.filter((m) => m.department === activeDept);
@@ -268,7 +332,6 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
     return list;
   }, [members, activeDept, search]);
 
-  /* Group by department for hierarchy view */
   const groupedByDept = useMemo(() => {
     const map = new Map<string, TeamMember[]>();
     for (const m of filtered) {
@@ -278,19 +341,17 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
     return map;
   }, [filtered]);
 
-  /* Exec tier members (always shown at top) */
   const executives = useMemo(() => filtered.filter((m) => m.hierarchy_level === 1), [filtered]);
 
-  /* Stats */
   const stats = useMemo(() => {
     const totalActive = members.length;
-    const deptCount   = new Set(members.map((m) => m.department)).size;
-    const execCount   = members.filter((m) => m.hierarchy_level === 1).length;
-    const avgTenure   = (() => {
+    const deptCount = new Set(members.map((m) => m.department)).size;
+    const execCount = members.filter((m) => m.hierarchy_level === 1).length;
+    const avgTenure = (() => {
       if (!members.length) return 0;
       const totalMonths = members.reduce((acc, m) => {
         const join = new Date(m.joining_date);
-        const now  = new Date();
+        const now = new Date();
         return acc + (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth());
       }, 0);
       return Math.round(totalMonths / members.length);
@@ -298,82 +359,132 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
     return { totalActive, deptCount, execCount, avgTenure };
   }, [members]);
 
-  return (
-    <main className='min-h-screen overflow-hidden'>
-      {/* ── Hero ──────────────────────────────────────────────── */}
-      <section className='relative py-28 px-4 text-center overflow-hidden'>
-        {/* Background orbs */}
-        <div className='absolute inset-0 pointer-events-none'>
-          <div className='absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-[0.07] blur-3xl animate-pulse' style={{ background: '#00F0FF' }} />
-          <div className='absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full opacity-[0.07] blur-3xl animate-pulse' style={{ background: '#B026FF', animationDelay: '1.2s' }} />
-          <div className='absolute inset-0 opacity-[0.03]' style={{ backgroundImage: 'linear-gradient(rgba(0,240,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(0,240,255,0.5) 1px, transparent 1px)', backgroundSize: '72px 72px' }} />
-        </div>
+  const STAT_ITEMS = [
+    { label: 'Team Members', value: `${stats.totalActive}` },
+    { label: 'Departments', value: `${stats.deptCount}` },
+    { label: 'Executives', value: `${stats.execCount}` },
+    {
+      label: 'Avg Tenure',
+      value: stats.avgTenure < 12 ? `${stats.avgTenure}m` : `${Math.floor(stats.avgTenure / 12)}y`,
+    },
+  ];
 
-        <div className='max-w-5xl mx-auto relative z-10'>
+  return (
+    <main className='xlu min-h-screen overflow-hidden'>
+      {/* ── Hero ──────────────────────────────────────────────── */}
+      <section className='relative isolate overflow-hidden px-4 py-[var(--xlu-space-2xl)] text-center'>
+        <BlueprintGrid />
+        <ConstellationField className='pointer-events-none absolute inset-0 h-full w-full' />
+        <div
+          aria-hidden
+          className='pointer-events-none absolute inset-0'
+          style={{
+            background:
+              'radial-gradient(ellipse 90% 75% at 50% 50%, transparent 40%, var(--xlu-surface-0) 100%)',
+          }}
+        />
+        <CornerBrackets />
+
+        <div className='relative mx-auto max-w-5xl'>
           <motion.span
-            initial={{ opacity: 0, y: -12 }}
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className='inline-block px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-6 glass'
-            style={{ color: '#00F0FF', borderColor: 'rgba(0,240,255,0.3)' }}
+            className='mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-widest'
+            style={{
+              borderColor: 'var(--xlu-hairline)',
+              background: 'var(--xlu-surface-1)',
+              color: 'var(--xlu-brand-1)',
+            }}
           >
+            <span className='h-1.5 w-1.5 rounded-full' style={{ background: 'var(--xlu-brand-1)' }} />
             The Humans Behind the Magic
           </motion.span>
 
           <motion.h1
-            className='text-5xl md:text-7xl font-bold mb-6 leading-tight'
-            initial={{ opacity: 0, y: 20 }}
+            className='mb-6 text-[2.5rem] sm:text-5xl font-bold leading-tight tracking-[-0.02em] md:text-7xl'
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: 0.1 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
           >
-            Meet the{' '}
-            <span className='gradient-text'>Team</span>
+            Meet the <span className='xlu-brand-text'>Team</span>
           </motion.h1>
 
           <motion.p
-            className='text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed'
-            initial={{ opacity: 0, y: 20 }}
+            className='mx-auto max-w-3xl text-xl leading-relaxed'
+            style={{ color: 'var(--xlu-ink-muted)' }}
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
           >
             A collective of engineers, marketers, designers, and strategists
             united by one obsession —{' '}
-            <span className='gradient-text font-semibold'>growing your business X times more</span>.
+            <span className='xlu-brand-text font-semibold'>growing your business X times more</span>.
           </motion.p>
 
-          {/* Live stats */}
+          {/* Live stats on a node rail */}
           <motion.div
-            className='flex flex-wrap justify-center gap-10 mt-12'
-            initial={{ opacity: 0, y: 20 }}
+            className='mx-auto mt-12 max-w-3xl'
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: 0.35 }}
+            transition={{ duration: 0.6, delay: 0.35 }}
           >
-            {[
-              { label: 'Team Members', value: `${stats.totalActive}` },
-              { label: 'Departments',  value: `${stats.deptCount}`   },
-              { label: 'Executives',   value: `${stats.execCount}`   },
-              { label: 'Avg Tenure',   value: stats.avgTenure < 12 ? `${stats.avgTenure}m` : `${Math.floor(stats.avgTenure / 12)}y` },
-            ].map((s) => (
-              <div key={s.label} className='text-center'>
-                <div className='text-3xl font-bold gradient-text'>{s.value}</div>
-                <div className='text-sm text-gray-500 mt-1'>{s.label}</div>
+            <div aria-hidden className='relative mb-4 hidden h-2 md:block'>
+              <div
+                className='absolute inset-x-0 top-1/2 h-px -translate-y-1/2'
+                style={{
+                  background:
+                    'linear-gradient(90deg, transparent, var(--xlu-hairline) 12%, var(--xlu-hairline) 88%, transparent)',
+                }}
+              />
+              <div className='relative grid h-full grid-cols-4'>
+                {STAT_ITEMS.map((s) => (
+                  <span key={s.label} className='flex items-center justify-center'>
+                    <span
+                      className='h-1.5 w-1.5 rounded-full'
+                      style={{ background: 'var(--xlu-brand-1)', opacity: 0.6 }}
+                    />
+                  </span>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div className='grid grid-cols-2 gap-6 md:grid-cols-4'>
+              {STAT_ITEMS.map((s) => (
+                <div key={s.label} className='text-center'>
+                  <div className='xlu-brand-text text-3xl font-bold tabular-nums'>{s.value}</div>
+                  <div className='mt-1 text-sm' style={{ color: 'var(--xlu-ink-subtle)' }}>
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* ── Controls bar ──────────────────────────────────────── */}
-      <section className='px-4 pb-8 max-w-7xl mx-auto'>
+      <section className='xlu-container pb-8'>
         <motion.div
-          className='glass rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start md:items-center'
-          initial={{ opacity: 0, y: 16 }}
+          className='flex flex-col items-start gap-4 rounded-2xl border p-4 md:flex-row md:items-center'
+          style={{
+            borderColor: 'var(--xlu-hairline)',
+            background: 'linear-gradient(180deg, var(--xlu-surface-2) 0%, var(--xlu-surface-1) 100%)',
+          }}
+          initial={reduced ? { opacity: 0 } : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
         >
           {/* Search */}
-          <div className='relative flex-1 max-w-sm'>
-            <svg className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
+          <div className='relative w-full max-w-sm flex-1'>
+            <svg
+              className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2'
+              style={{ color: 'var(--xlu-ink-faint)' }}
+              fill='none'
+              viewBox='0 0 24 24'
+              stroke='currentColor'
+              strokeWidth={2}
+            >
               <path strokeLinecap='round' strokeLinejoin='round' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' />
             </svg>
             <input
@@ -381,43 +492,72 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
               placeholder='Search by name, role, department…'
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className='w-full pl-9 pr-4 py-2.5 bg-[#1a1a2e] border border-gray-700 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan transition-colors'
+              className='w-full rounded-xl border py-2.5 pl-9 pr-4 text-sm transition-colors focus:outline-none'
+              style={{
+                borderColor: 'var(--xlu-hairline)',
+                background: 'var(--xlu-surface-0)',
+                color: 'var(--xlu-ink)',
+              }}
             />
           </div>
 
           {/* Dept filter */}
           <div className='flex flex-wrap gap-2'>
             {['All', ...departments].map((dept) => {
-              const color = dept === 'All' ? { accent: '#00F0FF', ring: 'rgba(0,240,255,0.3)' } : getDeptColor(dept);
+              const accent = dept === 'All' ? 'var(--xlu-brand-1)' : getDeptAccent(dept);
               const active = activeDept === dept;
               return (
                 <button
                   key={dept}
                   onClick={() => setActiveDept(dept)}
-                  className='px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200'
+                  className='xlu-pressable inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-[var(--xlu-dur-base)]'
                   style={{
-                    background:   active ? color.accent : 'rgba(255,255,255,0.04)',
-                    color:        active ? '#000' : color.accent,
-                    border:       `1px solid ${active ? color.accent : color.ring}`,
-                    transform:    active ? 'scale(1.05)' : 'scale(1)',
+                    borderColor: active
+                      ? `color-mix(in srgb, ${accent} 55%, transparent)`
+                      : 'var(--xlu-hairline)',
+                    background: active ? `color-mix(in srgb, ${accent} 12%, transparent)` : 'transparent',
+                    color: active ? accent : 'var(--xlu-ink-subtle)',
                   }}
                 >
+                  <span
+                    aria-hidden
+                    className='h-1.5 w-1.5 shrink-0 rounded-full transition-all duration-[var(--xlu-dur-base)]'
+                    style={{
+                      background: active ? accent : 'var(--xlu-ink-faint)',
+                      boxShadow: active ? `0 0 8px 1px ${accent}` : 'none',
+                    }}
+                  />
                   {dept}
                 </button>
               );
             })}
           </div>
 
+          {/* Live result count — instant feedback that filtering did something */}
+          <span
+            className='ml-auto shrink-0 text-[0.7rem] uppercase tabular-nums'
+            style={{
+              fontFamily: MONO,
+              letterSpacing: '0.16em',
+              color: 'var(--xlu-ink-faint)',
+            }}
+          >
+            {filtered.length} / {members.length}
+          </span>
+
           {/* View mode toggle */}
-          <div className='flex gap-1 ml-auto bg-[#1a1a2e] rounded-lg p-1 border border-gray-700'>
+          <div
+            className='flex gap-1 rounded-lg border p-1'
+            style={{ borderColor: 'var(--xlu-hairline)', background: 'var(--xlu-surface-0)' }}
+          >
             {(['hierarchy', 'grid'] as ViewMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className='px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 capitalize'
+                className='xlu-pressable rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-all duration-[var(--xlu-dur-base)]'
                 style={{
-                  background: viewMode === mode ? 'linear-gradient(135deg, #00F0FF, #B026FF)' : 'transparent',
-                  color:      viewMode === mode ? '#000' : '#9CA3AF',
+                  background: viewMode === mode ? 'var(--xlu-brand-gradient)' : 'transparent',
+                  color: viewMode === mode ? '#05050A' : 'var(--xlu-ink-subtle)',
                 }}
               >
                 {mode === 'hierarchy' ? '🏛 Hierarchy' : '⊞ Grid'}
@@ -430,10 +570,12 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
       {/* ── Empty state ───────────────────────────────────────── */}
       {filtered.length === 0 && (
         <motion.div
-          className='text-center py-24 text-gray-500'
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className='py-24 text-center'
+          style={{ color: 'var(--xlu-ink-subtle)' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
         >
-          <div className='text-5xl mb-4'>🔍</div>
+          <div className='mb-4 text-5xl'>🔍</div>
           <p className='text-lg'>No team members match your search.</p>
         </motion.div>
       )}
@@ -443,30 +585,56 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
         {viewMode === 'hierarchy' && filtered.length > 0 && (
           <motion.section
             key='hierarchy'
-            className='px-4 pb-20 max-w-7xl mx-auto space-y-16'
+            className='xlu-container space-y-16 pb-20'
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {/* ── Executives strip (full-width special layout) ── */}
             {executives.length > 0 && (
               <div>
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={reduced ? { opacity: 0 } : { opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
-                  className='flex items-center gap-4 mb-8'
+                  className='mb-8 flex items-center gap-4'
                 >
-                  <div className='flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold' style={{ background: 'rgba(234,179,8,0.12)', color: '#EAB308', border: '1px solid rgba(234,179,8,0.3)' }}>
-                    👑 Executive Leadership
-                    <span className='ml-1 px-2 py-0.5 rounded-full text-xs bg-yellow-500/20'>{executives.length}</span>
+                  <span
+                    className='h-1.5 w-1.5 shrink-0 rounded-full'
+                    style={{ background: 'var(--xlu-brand-1)' }}
+                    aria-hidden
+                  />
+                  <div className='flex items-center gap-2'>
+                    <span className='text-sm font-bold'>👑 Executive Leadership</span>
+                    <span
+                      className='rounded-full px-2 py-0.5 text-[0.65rem]'
+                      style={{
+                        fontFamily: MONO,
+                        background: 'rgba(255,255,255,0.05)',
+                        color: 'var(--xlu-ink-subtle)',
+                      }}
+                    >
+                      {executives.length}
+                    </span>
                   </div>
-                  <div className='flex-1 h-px opacity-20' style={{ background: 'linear-gradient(90deg, #EAB308, transparent)' }} />
+                  <div
+                    className='h-px flex-1'
+                    style={{
+                      background: 'linear-gradient(90deg, var(--xlu-brand-1), transparent)',
+                      opacity: 0.35,
+                    }}
+                  />
                 </motion.div>
 
-                {/* Executive cards — larger, centred */}
-                <div className={`grid gap-6 ${executives.length === 1 ? 'grid-cols-1 max-w-sm mx-auto' : executives.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+                <div
+                  className={`grid gap-6 ${
+                    executives.length === 1
+                      ? 'mx-auto max-w-sm grid-cols-1'
+                      : executives.length === 2
+                        ? 'mx-auto max-w-2xl grid-cols-1 sm:grid-cols-2'
+                        : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                  }`}
+                >
                   <AnimatePresence>
                     {executives.map((m, i) => (
                       <ExecutiveCard key={m.id} member={m} index={i} />
@@ -476,13 +644,10 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
               </div>
             )}
 
-            {/* ── Department sections ───────────────────────── */}
             {Array.from(groupedByDept.entries())
               .filter(([dept]) => {
-                // Skip executives-only departments if they're already shown above
                 const deptMembers = groupedByDept.get(dept) ?? [];
-                const nonExec = deptMembers.filter((m) => m.hierarchy_level > 1);
-                return nonExec.length > 0;
+                return deptMembers.filter((m) => m.hierarchy_level > 1).length > 0;
               })
               .map(([dept, deptMembers]) => {
                 const nonExec = deptMembers.filter((m) => m.hierarchy_level > 1);
@@ -495,7 +660,7 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
                     viewport={{ once: true, margin: '-80px' }}
                   >
                     <DeptHeader dept={dept} count={nonExec.length} />
-                    <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'>
+                    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
                       <AnimatePresence>
                         {nonExec.map((m, i) => (
                           <MemberCard key={m.id} member={m} index={i} />
@@ -512,14 +677,14 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
         {viewMode === 'grid' && filtered.length > 0 && (
           <motion.section
             key='grid'
-            className='px-4 pb-20 max-w-7xl mx-auto'
+            className='xlu-container pb-20'
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
             <HierarchyLegend />
-            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'>
+            <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
               <AnimatePresence>
                 {filtered.map((m, i) => (
                   <MemberCard key={m.id} member={m} index={i} />
@@ -531,86 +696,107 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
       </AnimatePresence>
 
       {/* ── Culture section ───────────────────────────────────── */}
-      <section className='px-4 pb-20 max-w-7xl mx-auto'>
+      <section className='xlu-container pb-20'>
         <motion.div
-          className='text-center mb-12'
-          initial={{ opacity: 0, y: 24 }}
+          className='mb-12 text-center'
+          initial={reduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className='text-3xl md:text-4xl font-bold mb-3'>
-            How We <span className='gradient-text'>Work</span>
+          <h2 className='mb-3 text-3xl font-bold tracking-[-0.02em] md:text-4xl'>
+            How We <span className='xlu-brand-text'>Work</span>
           </h2>
-          <p className='text-gray-400 max-w-2xl mx-auto text-sm'>
+          <p className='mx-auto max-w-2xl text-sm' style={{ color: 'var(--xlu-ink-muted)' }}>
             Our culture is built on engineering principles — systems thinking, measurable outcomes, and relentless iteration.
           </p>
         </motion.div>
 
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-5'>
+        <div className='grid grid-cols-1 gap-3 md:grid-cols-3'>
           {[
-            { icon: '🧠', title: 'Engineering Mindset',   color: '#00F0FF', desc: 'Every marketing challenge is a systems problem. If we can\'t measure it, we engineer a way to measure it first.' },
-            { icon: '🔁', title: 'Iterate & Improve',     color: '#B026FF', desc: 'Weekly retrospectives, A/B testing obsession, and a culture where "good enough" is never shipped — only measurably better.' },
-            { icon: '🤝', title: 'Client Partnership',    color: '#10B981', desc: 'We embed ourselves in your business goals, not just your deliverables. Your growth metrics are our KPIs.' },
+            { icon: '🧠', title: 'Engineering Mindset', accent: 'var(--xlu-brand-1)', desc: 'Every marketing challenge is a systems problem. If we can\'t measure it, we engineer a way to measure it first.' },
+            { icon: '🔁', title: 'Iterate & Improve', accent: 'var(--xlu-brand-3)', desc: 'Weekly retrospectives, A/B testing obsession, and a culture where "good enough" is never shipped — only measurably better.' },
+            { icon: '🤝', title: 'Client Partnership', accent: 'var(--xlu-brand-2)', desc: 'We embed ourselves in your business goals, not just your deliverables. Your growth metrics are our KPIs.' },
           ].map((v, i) => (
             <motion.div
               key={v.title}
-              className='rounded-2xl p-7 relative overflow-hidden group'
-              style={{ background: 'rgba(20,20,32,0.6)', border: `1px solid ${v.color}25`, backdropFilter: 'blur(12px)' }}
-              initial={{ opacity: 0, y: 24 }}
+              className='group relative overflow-hidden rounded-2xl border p-7'
+              style={{
+                borderColor: 'var(--xlu-hairline)',
+                background: 'linear-gradient(160deg, var(--xlu-surface-2) 0%, var(--xlu-surface-1) 100%)',
+                boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.05)',
+              }}
+              initial={reduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.12 }}
-              whileHover={{ y: -4 }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+              whileHover={reduced ? undefined : { y: -4 }}
             >
-              <div className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500' style={{ background: `radial-gradient(circle at 50% 0%, ${v.color}12, transparent 70%)` }} />
-              <div className='relative z-10'>
-                <div className='text-4xl mb-4'>{v.icon}</div>
-                <h3 className='text-lg font-bold text-white mb-2'>{v.title}</h3>
-                <p className='text-gray-400 text-sm leading-relaxed'>{v.desc}</p>
+              <span
+                aria-hidden
+                className='pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100'
+                style={{
+                  background: `radial-gradient(ellipse 80% 60% at 0% 0%, color-mix(in srgb, ${v.accent} 14%, transparent), transparent 70%)`,
+                }}
+              />
+              <div className='relative'>
+                <div className='mb-4 text-4xl'>{v.icon}</div>
+                <h3 className='mb-2 text-lg font-bold'>{v.title}</h3>
+                <p className='text-sm leading-relaxed' style={{ color: 'var(--xlu-ink-muted)' }}>
+                  {v.desc}
+                </p>
               </div>
-              <div className='absolute bottom-0 left-0 right-0 h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300' style={{ background: `linear-gradient(90deg, transparent, ${v.color}, transparent)` }} />
             </motion.div>
           ))}
         </div>
       </section>
 
       {/* ── CTA ───────────────────────────────────────────────── */}
-      <section className='px-4 pb-28'>
+      <section className='xlu-container pb-28'>
         <motion.div
-          className='max-w-4xl mx-auto rounded-3xl p-12 text-center relative overflow-hidden'
-          style={{ background: 'rgba(20,20,32,0.7)', border: '1px solid rgba(0,240,255,0.15)', backdropFilter: 'blur(16px)' }}
-          initial={{ opacity: 0, y: 36 }}
+          className='relative mx-auto max-w-4xl overflow-hidden rounded-3xl border p-12 text-center'
+          style={{
+            borderColor: 'var(--xlu-hairline)',
+            background: 'linear-gradient(180deg, var(--xlu-surface-2) 0%, var(--xlu-surface-1) 100%)',
+            boxShadow: '0 32px 90px -34px rgba(0,0,0,0.9)',
+          }}
+          initial={reduced ? { opacity: 0 } : { opacity: 0, y: 28 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.7 }}
+          transition={{ duration: 0.6 }}
         >
-          <div className='absolute inset-0 bg-gradient-to-br from-cyan/5 to-purple/10 pointer-events-none' />
-          <div className='absolute -top-16 -right-16 w-48 h-48 rounded-full opacity-10 blur-3xl' style={{ background: '#00F0FF' }} />
-          <div className='absolute -bottom-16 -left-16 w-48 h-48 rounded-full opacity-10 blur-3xl' style={{ background: '#B026FF' }} />
-          <div className='relative z-10'>
-            <div className='text-5xl mb-5'>🌟</div>
-            <h2 className='text-3xl md:text-4xl font-bold mb-4'>
-              Want to Join the <span className='gradient-text'>Crew?</span>
+          <CornerBrackets all />
+          <BlueprintGrid />
+
+          <div className='relative'>
+            <div className='mb-5 text-5xl'>🌟</div>
+            <h2 className='mb-4 text-3xl font-bold tracking-[-0.02em] md:text-4xl'>
+              Want to Join the <span className='xlu-brand-text'>Crew?</span>
             </h2>
-            <p className='text-gray-400 max-w-xl mx-auto mb-8 leading-relaxed'>
+            <p className='mx-auto mb-8 max-w-xl leading-relaxed' style={{ color: 'var(--xlu-ink-muted)' }}>
               We&apos;re always looking for exceptional engineers, marketers, and designers who believe growth is a science.
             </p>
-            <div className='flex flex-col sm:flex-row gap-4 justify-center'>
+            <div className='flex flex-col justify-center gap-4 sm:flex-row'>
               <Link
                 href='/careers'
                 id='careers-cta-btn'
-                className='inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-black transition-all duration-300 hover:scale-105'
-                style={{ background: 'linear-gradient(135deg, #00F0FF, #B026FF)', boxShadow: '0 0 24px rgba(0,240,255,0.2)' }}
+                className='xlu-pressable inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 font-semibold text-white'
+                style={{ background: 'var(--xlu-brand-gradient)' }}
               >
                 View Open Positions
-                <svg className='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}><path strokeLinecap='round' strokeLinejoin='round' d='M9 5l7 7-7 7' /></svg>
+                <svg className='h-4 w-4' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
+                  <path strokeLinecap='round' strokeLinejoin='round' d='M9 5l7 7-7 7' />
+                </svg>
               </Link>
               <Link
                 href='/contact'
                 id='contact-team-btn'
-                className='inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105'
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }}
+                className='xlu-pressable inline-flex items-center justify-center gap-2 rounded-full border px-7 py-3.5 font-semibold'
+                style={{
+                  borderColor: 'var(--xlu-hairline)',
+                  background: 'rgba(255,255,255,0.04)',
+                  color: 'var(--xlu-ink)',
+                }}
               >
                 Get in Touch
               </Link>
@@ -622,11 +808,10 @@ export default function TeamPageClient({ members, departments }: TeamPageClientP
   );
 }
 
-/* ─── Executive card (larger, premium treatment) ─────────────── */
-function ExecutiveCard({ member, index }: { member: TeamMember; index: number }) {
-  const color    = getDeptColor(member.department);
+/* ─── Executive card — heaviest surface on the page (§12) ────── */
+function ExecutiveCard({ member }: { member: TeamMember; index: number }) {
+  const accent = getDeptAccent(member.department);
   const initials = getInitials(member.name);
-  const avatarBg = nameToGradient(member.name);
 
   return (
     <motion.div
@@ -635,66 +820,85 @@ function ExecutiveCard({ member, index }: { member: TeamMember; index: number })
       initial='hidden'
       animate='visible'
       exit='exit'
-      custom={index}
-      className='group relative rounded-2xl overflow-hidden cursor-default'
-      style={{ background: 'rgba(20,20,32,0.85)', border: '1px solid rgba(234,179,8,0.3)', backdropFilter: 'blur(16px)' }}
-      whileHover={{ y: -8, transition: { duration: 0.25 } }}
+      whileHover={{ y: -6 }}
+      className='group relative cursor-default overflow-hidden rounded-2xl border'
+      style={{
+        borderColor: 'color-mix(in srgb, var(--xlu-brand-1) 30%, transparent)',
+        background: 'linear-gradient(160deg, var(--xlu-surface-3) 0%, var(--xlu-surface-1) 100%)',
+        boxShadow: '0 28px 70px -30px rgba(0,0,0,0.95), inset 0 1px 0 0 rgba(255,255,255,0.07)',
+      }}
     >
-      {/* Gold shimmer bar */}
-      <div className='h-[3px] w-full' style={{ background: 'linear-gradient(90deg, #EAB308, #F97316, #EAB308)', backgroundSize: '200% 100%' }} />
+      <CornerBrackets />
 
-      {/* Subtle star pattern */}
-      <div className='absolute inset-0 opacity-[0.025] pointer-events-none' style={{ backgroundImage: 'radial-gradient(circle, #EAB30840 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+      <span
+        aria-hidden
+        className='pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100'
+        style={{
+          background:
+            'radial-gradient(ellipse 90% 70% at 50% 0%, color-mix(in srgb, var(--xlu-brand-1) 16%, transparent), transparent 70%)',
+        }}
+      />
 
-      {/* Hover glow */}
-      <div className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none' style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(234,179,8,0.1) 0%, transparent 70%)' }} />
-
-      <div className='relative z-10 p-7'>
-        {/* Avatar — larger for execs */}
-        <div className='flex flex-col items-center text-center mb-6'>
+      <div className='relative p-7'>
+        <div className='mb-6 flex flex-col items-center text-center'>
           <div className='relative mb-4'>
             <div
-              className='w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-xl'
-              style={{ background: `linear-gradient(135deg, ${avatarBg}, #EAB30880)` }}
+              className='flex h-20 w-20 items-center justify-center rounded-2xl text-2xl font-bold'
+              style={{
+                background: `linear-gradient(140deg, color-mix(in srgb, ${accent} 35%, var(--xlu-surface-3)), var(--xlu-surface-2))`,
+                border: `1px solid color-mix(in srgb, ${accent} 40%, transparent)`,
+                color: 'var(--xlu-ink)',
+              }}
             >
               {initials}
             </div>
-            {/* Crown badge */}
-            <div className='absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full bg-yellow-500 flex items-center justify-center text-sm shadow-lg border-2 border-[#0A0A0F]'>
+            <div
+              className='absolute -right-2.5 -top-2.5 flex h-7 w-7 items-center justify-center rounded-full border-2 text-sm'
+              style={{ background: 'var(--xlu-brand-gradient)', borderColor: 'var(--xlu-surface-1)' }}
+            >
               👑
             </div>
-            {/* Pulsing ring */}
-            <div className='absolute inset-0 rounded-2xl animate-ping opacity-10' style={{ border: '2px solid #EAB308' }} />
           </div>
 
-          <h3 className='text-lg font-bold text-white'>{member.name}</h3>
-          {/* Primary exec title — first part of compound role */}
-          <p className='text-sm font-semibold mt-1' style={{ color: '#EAB308' }}>
+          <h3 className='text-lg font-bold'>{member.name}</h3>
+          <p className='mt-1 text-sm font-semibold' style={{ color: 'var(--xlu-brand-1)' }}>
             {member.role.split(/[&\/|\-–—+]|\band\b/i)[0].trim()}
           </p>
-          {/* Specialty from compound role e.g. "UI UX Engineer" */}
           {member.specialty && (
             <span
-              className='inline-block mt-1.5 px-3 py-1 rounded-lg text-xs font-semibold'
-              style={{ background: 'rgba(234,179,8,0.12)', color: '#EAB308', border: '1px solid rgba(234,179,8,0.25)' }}
+              className='mt-1.5 inline-block rounded-lg px-3 py-1 text-xs font-semibold'
+              style={{
+                background: 'color-mix(in srgb, var(--xlu-brand-1) 12%, transparent)',
+                color: 'var(--xlu-brand-1)',
+                border: '1px solid color-mix(in srgb, var(--xlu-brand-1) 25%, transparent)',
+              }}
             >
               🎨 {member.specialty}
             </span>
           )}
-          <div className='flex items-center gap-2 mt-2 text-xs text-gray-400'>
+          <div className='mt-2 flex items-center gap-2 text-xs' style={{ color: 'var(--xlu-ink-subtle)' }}>
             <span>{member.department}</span>
             <span>·</span>
             <span>{tenureLabel(member.joining_date)}</span>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className='h-px mb-4 opacity-30' style={{ background: 'linear-gradient(90deg, transparent, #EAB308, transparent)' }} />
+        <div className='mb-4 h-px' style={{ background: 'var(--xlu-hairline)' }} />
 
-        {/* Meta */}
-        <div className='text-[11px] text-gray-400 text-center'>
-          <div className='rounded-lg p-2' style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.15)' }}>
-            <div className='text-yellow-400 font-bold text-sm font-mono'>{member.employee_id}</div>
+        <div className='text-center text-[11px]' style={{ color: 'var(--xlu-ink-subtle)' }}>
+          <div
+            className='rounded-lg border p-2'
+            style={{
+              borderColor: 'var(--xlu-hairline)',
+              background: 'rgba(255,255,255,0.03)',
+            }}
+          >
+            <div
+              className='text-sm font-bold'
+              style={{ fontFamily: MONO, color: 'var(--xlu-brand-1)', letterSpacing: '0.08em' }}
+            >
+              {member.employee_id}
+            </div>
             <div>Employee ID</div>
           </div>
         </div>

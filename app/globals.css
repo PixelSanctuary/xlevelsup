@@ -11,6 +11,126 @@
   --purple: #B026FF;
 }
 
+/* ============================================================================
+   XLU MARKETING DESIGN SYSTEM  (--xlu-*)
+   ----------------------------------------------------------------------------
+   Additive layer for the marketing site ONLY. Nothing above this block is
+   modified: 41 ERP/employee files read --dark-*, --cyan, --purple, .glass and
+   .gradient-text, so those keep their exact current values.
+
+   Marketing components consume --xlu-* tokens exclusively. ERP never reads them.
+   ========================================================================== */
+:root {
+  /* --- Brand ramp: sampled from public/xlevelsup_logo.svg (4 stops) --------
+     The logo is the source of truth. The legacy --cyan/--purple pair was a
+     2-stop approximation that never matched the mark. */
+  --xlu-brand-1: #12E5FE;   /* cyan      — primary accent, links, active state */
+  --xlu-brand-2: #6C92FF;   /* blue      — gradient midpoint, secondary accent */
+  --xlu-brand-3: #8B73F8;   /* violet    — gradient midpoint */
+  --xlu-brand-4: #C640FF;   /* magenta   — gradient terminus, rare emphasis */
+
+  --xlu-brand: var(--xlu-brand-1);
+  --xlu-brand-gradient: linear-gradient(
+    135deg,
+    var(--xlu-brand-1) 0%,
+    var(--xlu-brand-2) 38%,
+    var(--xlu-brand-3) 68%,
+    var(--xlu-brand-4) 100%
+  );
+
+  /* --- Surfaces: theme direction preserved (dark), depth added ------------- */
+  --xlu-surface-0: #08080C;  /* page ground — slightly deeper for contrast room */
+  --xlu-surface-1: #0F0F17;
+  --xlu-surface-2: #16161F;
+  --xlu-surface-3: #1F1F2B;
+
+  /* --- Ink: vibrancy-aware (apple-design §12) ----------------------------- */
+  --xlu-ink:        #FFFFFF;
+  --xlu-ink-muted:  rgba(255, 255, 255, 0.72);
+  --xlu-ink-subtle: rgba(255, 255, 255, 0.52);
+  --xlu-ink-faint:  rgba(255, 255, 255, 0.32);
+  --xlu-hairline:   rgba(255, 255, 255, 0.10);
+
+  /* --- Type scale: fluid, clamp-based. Tracking is size-specific ----------
+     apple-design §15: large display text takes NEGATIVE tracking, body sits
+     near 0. Leading tightens as size grows. */
+  --xlu-font-display: 'Inter', system-ui, -apple-system, sans-serif;
+  --xlu-font-body:    'Inter', system-ui, -apple-system, sans-serif;
+  /* JetBrains Mono is loaded in app/layout.tsx via next/font and exposed as
+     --font-jetbrains-mono; this token wraps it with a sane fallback stack. */
+  --xlu-font-mono:    var(--font-jetbrains-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Modular scale, ~1.32 ratio. The hero is deliberately restrained: at 3.25rem
+     it leads the page without swallowing it, and the vw term is low enough that
+     wide desktops don't pin every size to its ceiling. */
+  --xlu-size-hero:    clamp(2.125rem, 1.35rem + 2.7vw, 3.25rem);
+  --xlu-size-h2:      clamp(1.75rem, 1.25rem + 1.7vw, 2.5rem);
+  --xlu-size-h3:      clamp(1.25rem, 1.05rem + 0.75vw, 1.5rem);
+  --xlu-size-subhead: clamp(1.0625rem, 1rem + 0.3vw, 1.1875rem);
+  --xlu-size-body-lg: 1.0625rem;
+  --xlu-size-body:    1rem;
+  --xlu-size-caption: 0.75rem;
+  --xlu-size-stat:    clamp(1.75rem, 1.2rem + 1.7vw, 2.5rem);
+
+  /* Tracking is size-specific (§15). Gentler than before — the previous
+     -0.035em was tuned for 96px type and reads cramped at 52px. */
+  --xlu-track-hero:    -0.022em;
+  --xlu-track-h2:      -0.018em;
+  --xlu-track-h3:      -0.012em;
+  --xlu-track-body:     0em;
+  --xlu-track-caption:  0.08em;
+
+  /* Leading opens up as size drops — 0.98 was only right at display scale. */
+  --xlu-leading-hero: 1.08;
+  --xlu-leading-h2:   1.15;
+  --xlu-leading-h3:   1.3;
+  --xlu-leading-body: 1.7;
+
+  /* --- Space: rem-based so layout scales with user text size (§15) --------- */
+  --xlu-space-2xs: 0.5rem;
+  --xlu-space-xs:  0.75rem;
+  --xlu-space-sm:  1rem;
+  --xlu-space-md:  1.5rem;
+  --xlu-space-lg:  2.5rem;
+  --xlu-space-xl:  4rem;
+  --xlu-space-2xl: 6rem;
+  --xlu-space-3xl: 9rem;
+  /* Section rhythm — was clamp(5rem, 12vw, 11rem), which hit its 11rem (176px)
+     ceiling by ~1000px wide and stayed there. Two adjacent sections then
+     compounded to 352px of pure padding between their content — read as
+     excessive dead space. Tightened so it's still generous but consciously so. */
+  /* Adjacent sections each contribute this as padding, so the visible gap is
+     DOUBLE the value. At 6rem that produced a 192px band between sections —
+     read as odd, disconnected space. 3.25rem gives a ~104px gap, which still
+     separates clearly without the page feeling broken apart. */
+  --xlu-section-y: clamp(2.5rem, 4vw, 3.25rem);
+  --xlu-gutter:    clamp(1.25rem, 5vw, 4rem);
+  --xlu-measure:   68ch;
+
+  /* --- Motion: springs are set per-component in JS (framer-motion).
+     These easings are for non-gesture, non-interruptible transitions only.
+     apple-design §3: never use CSS transitions for gesture-driven motion. --- */
+  --xlu-ease-out:  cubic-bezier(0.22, 1, 0.36, 1);
+  --xlu-ease-in:   cubic-bezier(0.64, 0, 0.78, 0);   /* inverse of above (§7) */
+  --xlu-dur-fast:  120ms;
+  --xlu-dur-base:  260ms;
+  --xlu-dur-slow:  420ms;
+
+  /* --- Materials (§12): weight encodes hierarchy -------------------------- */
+  --xlu-material-thin:  blur(14px) saturate(160%);
+  --xlu-material-thick: blur(28px) saturate(180%);
+  --xlu-scrim: rgba(8, 8, 12, 0.72);
+}
+
+/* Bigger surfaces read as thicker — deeper shadow, stronger blur (§12) */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --xlu-material-thin:  none;
+    --xlu-material-thick: none;
+  }
+}
+
+
 /* Keyframe animations */
 @keyframes glow {
   from {
@@ -76,10 +196,7 @@ body {
 
 /* Custom utility classes */
 .gradient-text {
-  background: linear-gradient(135deg, var(--cyan), var(--purple));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--cyan);
 }
 
 .glass {
@@ -126,4 +243,191 @@ body {
 .shadow-purple\/50 {
   --tw-shadow-color: rgb(176 38 255 / 0.5);
   --tw-shadow: var(--tw-shadow-colored);
+}
+
+/* ============================================================================
+   XLU MARKETING PRIMITIVES
+   Scoped under .xlu — cannot leak into ERP-rendered subtrees.
+   ========================================================================== */
+
+.xlu {
+  background: var(--xlu-surface-0);
+  color: var(--xlu-ink);
+  font-family: var(--xlu-font-body);
+  font-size: var(--xlu-size-body);
+  line-height: var(--xlu-leading-body);
+  letter-spacing: var(--xlu-track-body);
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+/* --- Type ---------------------------------------------------------------- */
+.xlu-display {
+  font-family: var(--xlu-font-display);
+  font-size: var(--xlu-size-hero);
+  line-height: var(--xlu-leading-hero);
+  letter-spacing: var(--xlu-track-hero);
+  /* 600, not 700 — at this scale bold reads as shouting. Hierarchy comes from
+     size + spacing + color, not weight alone (§15). */
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.xlu-h2 {
+  font-size: var(--xlu-size-h2);
+  line-height: var(--xlu-leading-h2);
+  letter-spacing: var(--xlu-track-h2);
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.xlu-h3 {
+  font-size: var(--xlu-size-h3);
+  line-height: var(--xlu-leading-h3);
+  letter-spacing: var(--xlu-track-h3);
+  font-weight: 600;
+}
+
+.xlu-subhead {
+  font-size: var(--xlu-size-subhead);
+  line-height: 1.5;
+  color: var(--xlu-ink-muted);
+  max-width: var(--xlu-measure);
+  text-wrap: pretty;
+}
+
+.xlu-caption {
+  font-size: var(--xlu-size-caption);
+  letter-spacing: var(--xlu-track-caption);
+  text-transform: uppercase;
+  color: var(--xlu-ink-subtle);
+  font-weight: 500;
+}
+
+/* Stat numerals as design elements, not paragraph text */
+.xlu-stat {
+  font-size: var(--xlu-size-stat);
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  font-weight: 700;
+  color: var(--xlu-brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.xlu-brand-text {
+  /* apple-design §12: hierarchy via colour, not weight.
+     §10: vibrancy-aware tint — the primary accent (cyan) at 85% opacity
+     reads as "lit from within" against the dark surface, like a node
+     that's powered on. Single clean colour: no gradient, no halo stack.
+     Clearly distinct from the pure-white surrounding text without
+     competing for attention — restrained, intentional, alive. */
+  color: rgba(18, 229, 254, 0.85);
+  -webkit-text-fill-color: rgba(18, 229, 254, 0.85);
+  background: none;
+  text-shadow: 0 0 24px rgba(18, 229, 254, 0.18);
+}
+
+/* --- Layout -------------------------------------------------------------- */
+.xlu-section { padding-block: var(--xlu-section-y); }
+
+.xlu-container {
+  width: 100%;
+  max-width: 84rem;
+  margin-inline: auto;
+  padding-inline: var(--xlu-gutter);
+}
+
+/* Hairline that fades at both ends — refined divider, not a hard 1px rule */
+.xlu-rule {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, var(--xlu-hairline) 18%, var(--xlu-hairline) 82%, transparent);
+}
+
+/* --- Materials (§12) ------------------------------------------------------ */
+.xlu-material {
+  background: rgba(15, 15, 23, 0.62);
+  backdrop-filter: var(--xlu-material-thin);
+  -webkit-backdrop-filter: var(--xlu-material-thin);
+  border-bottom: 1px solid var(--xlu-hairline);
+}
+
+.xlu-material-thick {
+  background: rgba(15, 15, 23, 0.78);
+  backdrop-filter: var(--xlu-material-thick);
+  -webkit-backdrop-filter: var(--xlu-material-thick);
+  border: 1px solid var(--xlu-hairline);
+  box-shadow: 0 24px 70px -20px rgba(0, 0, 0, 0.75);
+}
+
+/* Scroll edge effect instead of a hard divider under floating chrome (§12) */
+.xlu-scroll-edge {
+  position: absolute;
+  inset-inline: 0;
+  height: 4.5rem;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--xlu-surface-0), transparent);
+}
+
+/* --- Interaction: feedback on pointer-down, instant (§1) ------------------ */
+.xlu-pressable {
+  transition: transform var(--xlu-dur-fast) var(--xlu-ease-out),
+              opacity var(--xlu-dur-fast) var(--xlu-ease-out);
+  touch-action: manipulation;
+}
+.xlu-pressable:active { transform: scale(0.97); }
+
+/* Underline-draw hover: one hover language, applied consistently */
+.xlu-link {
+  position: relative;
+  color: var(--xlu-ink);
+  text-decoration: none;
+}
+.xlu-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 1px;
+  background: var(--xlu-brand);
+  transform: scaleX(0);
+  transform-origin: left;   /* enters from left... */
+  transition: transform var(--xlu-dur-base) var(--xlu-ease-out);
+}
+.xlu-link:hover::after,
+.xlu-link:focus-visible::after { transform: scaleX(1); }
+.xlu-link:not(:hover)::after { transform-origin: right; } /* ...exits to right (§7) */
+
+.xlu :focus-visible {
+  outline: 2px solid var(--xlu-brand);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* --- Accessibility (§14) -------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .xlu *,
+  .xlu *::before,
+  .xlu *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--xlu-dur-fast) !important;
+    scroll-behavior: auto !important;
+  }
+  .xlu-pressable:active { transform: none; }
+}
+
+@media (prefers-contrast: more) {
+  .xlu {
+    --xlu-ink-muted:  rgba(255, 255, 255, 0.92);
+    --xlu-ink-subtle: rgba(255, 255, 255, 0.80);
+    --xlu-hairline:   rgba(255, 255, 255, 0.34);
+  }
+  .xlu-material,
+  .xlu-material-thick {
+    background: var(--xlu-surface-1);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }

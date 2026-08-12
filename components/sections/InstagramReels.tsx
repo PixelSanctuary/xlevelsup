@@ -19,6 +19,8 @@ interface Reel {
   thumbnailUrl: string;
   permalink: string;
   timestamp: string;
+  /** False when Instagram withheld media_url — renders as a poster instead. */
+  playable: boolean;
 }
 
 const INSTAGRAM_PROFILE = 'https://www.instagram.com/xlevelsup';
@@ -93,7 +95,13 @@ export default function InstagramReels() {
 
   const activeReel = reels.find((r) => r.id === activeId) ?? reels[0];
   const satellites = reels.filter((r) => r.id !== activeReel.id);
-  const latestId = reels[0].id;
+  // Derive "latest" from the actual timestamps, not from array position. The
+  // API promotes a playable reel into slot 0 so the centre stage can play
+  // video, so reels[0] is no longer guaranteed to be the newest post — using
+  // it here would put a "Latest drop" badge on an older reel.
+  const latestId = reels.reduce((newest, r) =>
+    new Date(r.timestamp) > new Date(newest.timestamp) ? r : newest,
+  ).id;
   // Shrink the orbiting cards in step with the stage so the layout holds on small screens
   const orbitScale = Math.max(0.5, Math.min(1, stageWidth / 980));
   const orbitSlots = stageWidth < 640 ? MOBILE_ORBIT_SLOTS : ORBIT_SLOTS;
@@ -121,17 +129,44 @@ export default function InstagramReels() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
           >
-            <video
-              ref={videoRef}
-              src={`/api/instagram/reels/video/${activeReel.id}`}
-              poster={activeReel.thumbnailUrl || undefined}
-              className='w-full h-full object-cover'
-              autoPlay
-              muted={muted}
-              loop
-              playsInline
-              preload='metadata'
-            />
+            {activeReel.playable ? (
+              <video
+                ref={videoRef}
+                src={`/api/instagram/reels/video/${activeReel.id}`}
+                poster={activeReel.thumbnailUrl || undefined}
+                className='w-full h-full object-cover'
+                autoPlay
+                muted={muted}
+                loop
+                playsInline
+                preload='metadata'
+              >
+                <track kind='captions' src='' label='English' />
+              </video>
+            ) : (
+              // Instagram withheld media_url for this reel, so there is no file
+              // to play. Show the poster and send the visitor to Instagram —
+              // better than dropping the reel from the feed entirely.
+              <a
+                href={activeReel.permalink}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='group block w-full h-full'
+                aria-label='Watch this reel on Instagram'
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={activeReel.thumbnailUrl}
+                  alt={activeReel.caption ? activeReel.caption.slice(0, 80) : 'Instagram reel'}
+                  className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
+                />
+                <span className='absolute inset-0 flex items-center justify-center bg-black/25 transition-colors duration-300 group-hover:bg-black/15'>
+                  <span className='flex items-center justify-center w-16 h-16 rounded-full bg-black/55 backdrop-blur-sm border border-white/25 transition-transform duration-300 group-hover:scale-110'>
+                    <Play className='w-6 h-6 text-white fill-white translate-x-0.5' />
+                  </span>
+                </span>
+              </a>
+            )}
           </motion.div>
         </AnimatePresence>
 
@@ -150,14 +185,18 @@ export default function InstagramReels() {
               timeAgo(activeReel.timestamp)
             )}
           </span>
-          <button
-            type='button'
-            aria-label={muted ? 'Unmute reel' : 'Mute reel'}
-            className='p-2 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white border border-white/10 transition-colors'
-            onClick={() => setMuted((prev) => !prev)}
-          >
-            {muted ? <VolumeX className='w-4 h-4' /> : <Volume2 className='w-4 h-4' />}
-          </button>
+          {/* Only meaningful when a video is actually playing — a mute toggle
+              over a static poster is a control that does nothing. */}
+          {activeReel.playable && (
+            <button
+              type='button'
+              aria-label={muted ? 'Unmute reel' : 'Mute reel'}
+              className='p-2 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white border border-white/10 transition-colors'
+              onClick={() => setMuted((prev) => !prev)}
+            >
+              {muted ? <VolumeX className='w-4 h-4' /> : <Volume2 className='w-4 h-4' />}
+            </button>
+          )}
         </div>
 
         {/* Bottom overlay */}
