@@ -44,7 +44,7 @@ const APPROACH = [
 
 const STATS = [
     { end: 100, suffix: '%', label: 'Code-Based Solutions' },
-    { end: 4, suffix: '+', label: 'Active Partners' },
+    { end: 5, suffix: '+', label: 'Active Partners' },
     { end: 95, suffix: '+', label: 'Lighthouse Scores' },
 ];
 

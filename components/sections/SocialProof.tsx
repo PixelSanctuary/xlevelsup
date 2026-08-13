@@ -1,10 +1,13 @@
-'use client';
-
-import { m as motion, useReducedMotion } from 'framer-motion';
-import { springDefault, revealViewport } from '@/components/marketing/motion';
-
 /**
  * Trusted by Industry Leaders — single marquee track.
+ *
+ * SERVER COMPONENT. This section used to be `'use client'` in its entirety,
+ * which shipped all 215 lines — every client name, the rail, the sweep, the
+ * chips — as JavaScript to be hydrated, on top of the HTML it already sent.
+ * Almost none of it needed that: the marquee, the sweep and the node dots are
+ * pure CSS keyframes. Only the whileInView reveals, the per-chip hover and the
+ * reduced-motion check need the client, and those now live in small leaves in
+ * ./SocialProofClient.tsx. The animations themselves are unchanged.
  *
  * The earlier two-row version paused BOTH rows on :hover, so touching one row
  * froze the other — read as broken. The fix here is structural, not cosmetic:
@@ -23,6 +26,8 @@ import { springDefault, revealViewport } from '@/components/marketing/motion';
  * track exists in the DOM at all in that mode.
  */
 
+import { RevealHeading, StripSwitch, HoverChip } from './SocialProofClient';
+
 const clients = [
   { name: 'Pratyagra Silks' },
   { name: 'Wanderingkite' },
@@ -35,12 +40,107 @@ const clients = [
 ];
 
 export default function SocialProof() {
-  const reduced = useReducedMotion();
   // Tripled, not doubled. With only two copies the track can be narrower than
   // a wide viewport, so when the -50% reset lands there is nothing left to the
   // right of "Studio OS" and the strip shows a gap before looping. Three copies
   // resetting at -33.333% keep the visible area covered at every screen width.
   const track = [...clients, ...clients, ...clients];
+
+  // Static wrapped row shown under prefers-reduced-motion (§14).
+  const staticRow = (
+    <div className='xlu-container flex flex-wrap items-center justify-center gap-3'>
+      {clients.map((c) => (
+        <span
+          key={c.name}
+          className='flex items-center gap-2.5 rounded-full border px-5 py-2.5'
+          style={{ borderColor: 'var(--xlu-hairline)', background: 'var(--xlu-surface-1)' }}
+        >
+          <span className='h-1.5 w-1.5 rounded-full' style={{ background: 'var(--xlu-brand-1)' }} />
+          <span className='text-lg font-bold' style={{ color: 'var(--xlu-ink-subtle)' }}>
+            {c.name}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+
+  const animatedStrip = (
+    <>
+      {/* Signal rail — thin brand-gradient line the chips sit on */}
+      <div
+        aria-hidden
+        className='absolute left-0 right-0 top-1/2 h-px -translate-y-1/2'
+        style={{ background: 'linear-gradient(90deg, transparent, var(--xlu-hairline) 12%, var(--xlu-hairline) 88%, transparent)' }}
+      />
+      {/* Data packet travelling the rail — a soft glow trail with a bright
+          leading core, rather than a flat 1px line (§12: light on a surface,
+          not a drawn stroke). */}
+      <div
+        aria-hidden
+        className='xlu-signal-sweep pointer-events-none absolute left-0 top-1/2 w-[60%] -translate-y-1/2'
+      >
+        {/* Wide soft halo */}
+        <div
+          className='absolute left-0 top-1/2 h-6 w-full -translate-y-1/2 blur-[10px]'
+          style={{
+            background:
+              'linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--xlu-brand-1) 50%, transparent) 20%, color-mix(in srgb, var(--xlu-brand-3) 60%, transparent) 70%, color-mix(in srgb, var(--xlu-brand-4) 40%, transparent) 90%, transparent 100%)',
+          }}
+        />
+        {/* The rail itself, lit — full sweep length */}
+        <div
+          className='absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 rounded-full'
+          style={{
+            background:
+              'linear-gradient(90deg, transparent 0%, var(--xlu-brand-1) 25%, var(--xlu-brand-3) 65%, var(--xlu-brand-4) 88%, #ffffff 96%, transparent 100%)',
+          }}
+        />
+        {/* Bright leading core */}
+        <div
+          className='xlu-signal-core absolute right-[2%] top-1/2 h-[6px] w-[6px] -translate-y-1/2 rounded-full'
+          style={{
+            background: '#ffffff',
+            boxShadow: '0 0 12px 3px var(--xlu-brand-4), 0 0 26px 8px color-mix(in srgb, var(--xlu-brand-3) 60%, transparent)',
+          }}
+        />
+      </div>
+
+      <div
+        className='relative overflow-hidden'
+        style={{
+          maskImage: 'linear-gradient(90deg, transparent, black 8%, black 92%, transparent)',
+          WebkitMaskImage: 'linear-gradient(90deg, transparent, black 8%, black 92%, transparent)',
+        }}
+      >
+        <div className='xlu-signal-track flex w-max gap-4'>
+          {track.map((c, i) => (
+            <HoverChip
+              key={`${c.name}-${i}`}
+              hidden={i >= clients.length}
+              className='group relative flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full border px-5 py-2.5'
+              style={{ borderColor: 'var(--xlu-hairline)', background: 'var(--xlu-surface-1)' }}
+            >
+              <span
+                className='xlu-chip-dot h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-[var(--xlu-dur-base)] group-hover:bg-[var(--xlu-brand-1)]'
+                style={{
+                  background: 'var(--xlu-ink-faint)',
+                  // Staggered per chip so the dots beat independently, like
+                  // separate signals on one network — never in unison.
+                  animationDelay: `${(i % clients.length) * 0.42}s`,
+                }}
+              />
+              <span
+                className='text-lg font-bold transition-colors duration-[var(--xlu-dur-base)] group-hover:text-[var(--xlu-ink)]'
+                style={{ color: 'var(--xlu-ink-subtle)' }}
+              >
+                {c.name}
+              </span>
+            </HoverChip>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <section className='xlu relative overflow-hidden' style={{ paddingBlock: 'var(--xlu-section-y)' }}>
@@ -95,121 +195,15 @@ export default function SocialProof() {
       `}</style>
 
       <div className='xlu-container'>
-        <motion.h2
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={revealViewport}
-          transition={{ duration: 0.4 }}
+        <RevealHeading
           className='mb-10 text-center text-sm uppercase tracking-wider'
           style={{ color: 'var(--xlu-ink-subtle)' }}
         >
           Trusted by Industry Leaders
-        </motion.h2>
+        </RevealHeading>
       </div>
 
-      {reduced ? (
-        <div className='xlu-container flex flex-wrap items-center justify-center gap-3'>
-          {clients.map((c) => (
-            <span
-              key={c.name}
-              className='flex items-center gap-2.5 rounded-full border px-5 py-2.5'
-              style={{ borderColor: 'var(--xlu-hairline)', background: 'var(--xlu-surface-1)' }}
-            >
-              <span className='h-1.5 w-1.5 rounded-full' style={{ background: 'var(--xlu-brand-1)' }} />
-              <span className='text-lg font-bold' style={{ color: 'var(--xlu-ink-subtle)' }}>
-                {c.name}
-              </span>
-            </span>
-          ))}
-        </div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={revealViewport}
-          transition={springDefault}
-          className='relative py-3'
-        >
-          {/* Signal rail — thin brand-gradient line the chips sit on */}
-          <div
-            aria-hidden
-            className='absolute left-0 right-0 top-1/2 h-px -translate-y-1/2'
-            style={{ background: 'linear-gradient(90deg, transparent, var(--xlu-hairline) 12%, var(--xlu-hairline) 88%, transparent)' }}
-          />
-          {/* Data packet travelling the rail — a soft glow trail with a bright
-              leading core, rather than a flat 1px line (§12: light on a surface,
-              not a drawn stroke). */}
-          <div
-            aria-hidden
-            className='xlu-signal-sweep pointer-events-none absolute left-0 top-1/2 w-[60%] -translate-y-1/2'
-          >
-            {/* Wide soft halo */}
-            <div
-              className='absolute left-0 top-1/2 h-6 w-full -translate-y-1/2 blur-[10px]'
-              style={{
-                background:
-                  'linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--xlu-brand-1) 50%, transparent) 20%, color-mix(in srgb, var(--xlu-brand-3) 60%, transparent) 70%, color-mix(in srgb, var(--xlu-brand-4) 40%, transparent) 90%, transparent 100%)',
-              }}
-            />
-            {/* The rail itself, lit — full sweep length */}
-            <div
-              className='absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 rounded-full'
-              style={{
-                background:
-                  'linear-gradient(90deg, transparent 0%, var(--xlu-brand-1) 25%, var(--xlu-brand-3) 65%, var(--xlu-brand-4) 88%, #ffffff 96%, transparent 100%)',
-              }}
-            />
-            {/* Bright leading core */}
-            <div
-              className='xlu-signal-core absolute right-[2%] top-1/2 h-[6px] w-[6px] -translate-y-1/2 rounded-full'
-              style={{
-                background: '#ffffff',
-                boxShadow: '0 0 12px 3px var(--xlu-brand-4), 0 0 26px 8px color-mix(in srgb, var(--xlu-brand-3) 60%, transparent)',
-              }}
-            />
-          </div>
-
-          <div
-            className='relative overflow-hidden'
-            style={{
-              maskImage: 'linear-gradient(90deg, transparent, black 8%, black 92%, transparent)',
-              WebkitMaskImage: 'linear-gradient(90deg, transparent, black 8%, black 92%, transparent)',
-            }}
-          >
-            <div className='xlu-signal-track flex w-max gap-4'>
-              {track.map((c, i) => (
-                <motion.span
-                  key={`${c.name}-${i}`}
-                  aria-hidden={i >= clients.length}
-                  // Hover only ever touches THIS element's own transform/colour —
-                  // it cannot reach the track's animation, so it can never freeze
-                  // anything else on the page.
-                  whileHover={{ y: -3 }}
-                  transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
-                  className='group relative flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full border px-5 py-2.5'
-                  style={{ borderColor: 'var(--xlu-hairline)', background: 'var(--xlu-surface-1)' }}
-                >
-                  <span
-                    className='xlu-chip-dot h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-[var(--xlu-dur-base)] group-hover:bg-[var(--xlu-brand-1)]'
-                    style={{
-                      background: 'var(--xlu-ink-faint)',
-                      // Staggered per chip so the dots beat independently, like
-                      // separate signals on one network — never in unison.
-                      animationDelay: `${(i % clients.length) * 0.42}s`,
-                    }}
-                  />
-                  <span
-                    className='text-lg font-bold transition-colors duration-[var(--xlu-dur-base)] group-hover:text-[var(--xlu-ink)]'
-                    style={{ color: 'var(--xlu-ink-subtle)' }}
-                  >
-                    {c.name}
-                  </span>
-                </motion.span>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
+      <StripSwitch animated={animatedStrip} fallback={staticRow} />
     </section>
   );
 }

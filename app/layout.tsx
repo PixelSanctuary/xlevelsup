@@ -117,7 +117,12 @@ export default function RootLayout({
   return (
     <html lang='en-IN'>
       <head>
-        <link rel='preconnect' href='https://www.googletagmanager.com' />
+        {/* dns-prefetch only, deliberately NOT preconnect. GTM loads with
+            strategy='lazyOnload', so it is fetched long after LCP. A preconnect
+            spends a TLS handshake during the critical window to accelerate a
+            script we intentionally deferred — it competes with the hero paint
+            for connections. DNS resolution alone is cheap and still saves time
+            when the tag eventually fires. */}
         <link rel='dns-prefetch' href='https://www.googletagmanager.com' />
       </head>
       <body className={`${inter.className} ${jetbrainsMono.variable} antialiased`}>
