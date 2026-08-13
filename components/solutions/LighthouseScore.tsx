@@ -17,11 +17,16 @@
  * heavier surface, the pass strip below is lighter.
  * §14: ring sweep and hover lift both drop under reduced motion.
  *
+ * The ring sweep replays on every scroll-in rather than firing once: the dials
+ * reset when the panel leaves the viewport, so scrolling back to it shows the
+ * sweep again instead of four static rings.
+ *
  * Content unchanged: the four metric names, the four 100 scores, the heading,
  * the subhead and the pass strip are all verbatim.
  */
 
-import { m as motion, useReducedMotion } from 'framer-motion';
+import { m as motion, useInView, useReducedMotion } from 'framer-motion';
+import { useRef } from 'react';
 
 const GREEN = '#28C840';
 const RADIUS = 40;
@@ -29,6 +34,11 @@ const CIRC = 2 * Math.PI * RADIUS;
 
 export default function LighthouseScore() {
     const reduced = useReducedMotion();
+
+    // Drive the sweep off the panel itself so all four dials share one
+    // trigger and stay in step. `once: false` lets it re-arm on scroll-out.
+    const panelRef = useRef<HTMLDivElement>(null);
+    const inView = useInView(panelRef, { once: false, amount: 0.35 });
 
     const metrics = [
         { name: 'Performance', score: 100 },
@@ -39,6 +49,7 @@ export default function LighthouseScore() {
 
     return (
         <div
+            ref={panelRef}
             className='relative overflow-hidden rounded-2xl border'
             style={{
                 borderColor: 'var(--xlu-hairline)',
@@ -141,10 +152,20 @@ export default function LighthouseScore() {
                                 boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.05)',
                             }}
                             initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
+                            animate={
+                                inView
+                                    ? { opacity: 1, scale: 1 }
+                                    : reduced
+                                      ? { opacity: 0, scale: 1 }
+                                      : { opacity: 0, scale: 0.92 }
+                            }
                             whileHover={reduced ? undefined : { y: -3 }}
-                            transition={{ type: 'spring', bounce: 0, duration: 0.4, delay: index * 0.08 }}
+                            transition={{
+                                type: 'spring',
+                                bounce: 0,
+                                duration: 0.4,
+                                delay: inView ? index * 0.08 : 0,
+                            }}
                         >
                             <div className='relative mx-auto mb-3 h-24 w-24'>
                                 <svg className='h-full w-full -rotate-90'>
@@ -165,16 +186,16 @@ export default function LighthouseScore() {
                                         fill='none'
                                         strokeLinecap='round'
                                         style={{ filter: `drop-shadow(0 0 6px ${GREEN}88)` }}
-                                        initial={{
-                                            strokeDasharray: CIRC,
-                                            strokeDashoffset: reduced ? 0 : CIRC,
+                                        strokeDasharray={CIRC}
+                                        initial={{ strokeDashoffset: reduced ? 0 : CIRC }}
+                                        animate={{
+                                            strokeDashoffset: inView || reduced ? 0 : CIRC,
                                         }}
-                                        whileInView={{ strokeDashoffset: 0 }}
-                                        viewport={{ once: true }}
                                         transition={{
                                             duration: reduced ? 0 : 1.4,
                                             ease: [0.22, 1, 0.36, 1] as const,
-                                            delay: index * 0.08,
+                                            // Only stagger on the way in; the reset snaps back together.
+                                            delay: inView ? index * 0.08 : 0,
                                         }}
                                     />
                                 </svg>
