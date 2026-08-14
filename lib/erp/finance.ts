@@ -293,10 +293,14 @@ export async function getFinanceSummary(
       const amt = Number(entry.amount || 0);
       
       if (entry.direction === 'inflow') {
-        if (entry.payment_status === 'completed') {
+        // Invoice income sits pending until an admin approves it in
+        // Finances, so it shouldn't inflate totals before that review.
+        const isUnapprovedInvoice = entry.transaction_type === 'income' && entry.approval_status === 'pending';
+
+        if (entry.payment_status === 'completed' && !isUnapprovedInvoice) {
           totalIncome += amt;
         }
-        if (entry.transaction_type === 'income' && entry.payment_status === 'completed') {
+        if (entry.transaction_type === 'income' && entry.payment_status === 'completed' && !isUnapprovedInvoice) {
           clientIncome += amt;
         }
         if (entry.transaction_type === 'investment' && entry.payment_status === 'completed') {
@@ -325,7 +329,8 @@ export async function getFinanceSummary(
 
     thisMonthEntries.forEach((entry) => {
       const amt = Number(entry.amount || 0);
-      if (entry.direction === 'inflow' && entry.payment_status === 'completed') {
+      const isUnapprovedInvoice = entry.transaction_type === 'income' && entry.approval_status === 'pending';
+      if (entry.direction === 'inflow' && entry.payment_status === 'completed' && !isUnapprovedInvoice) {
         thisMonthIncome += amt;
       } else if (entry.direction === 'outflow' && (entry.payment_status === 'completed' || entry.payment_status === 'pending')) {
         thisMonthExpenses += amt;

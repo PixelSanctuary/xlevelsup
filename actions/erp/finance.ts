@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '@/lib/auth';
 import {
   getLedgerEntries,
+  getLedgerEntryById,
   insertLedgerEntry,
   updateLedgerEntryById,
   deleteLedgerEntryById,
@@ -241,7 +242,9 @@ export async function deleteLedgerEntryAction(
 }
 
 /**
- * Approve/reject a reimbursement or expense entry
+ * Approve/reject a reimbursement, expense, or invoice-generated income entry.
+ * Income entries (client invoices) are admin-only — separation of duties
+ * between whoever raised the invoice and whoever confirms the income.
  */
 export async function approveLedgerEntryAction(
   id: number,
@@ -250,8 +253,17 @@ export async function approveLedgerEntryAction(
 ): Promise<FinanceActionResult> {
   try {
     const session = await requireRole(['admin', 'hr']);
+
+    const existing = await getLedgerEntryById(id);
+    if (!existing) {
+      return { success: false, error: 'Ledger entry not found' };
+    }
+    if (existing.transaction_type === 'income' && session.role !== 'admin') {
+      return { success: false, error: 'Only admins can approve invoice income entries' };
+    }
+
     const entry = await approveLedgerEntry(id, status, session.userId, comments);
-    
+
     revalidatePath('/erp/finances');
     return { success: true, entry };
   } catch (error) {

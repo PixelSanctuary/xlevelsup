@@ -23,6 +23,7 @@ export default function ERPLayoutWrapper({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFinancesOpen, setIsMobileFinancesOpen] = useState(false);
+  const [isMobileMyWorkspaceOpen, setIsMobileMyWorkspaceOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -144,6 +145,14 @@ export default function ERPLayoutWrapper({
             href: '/erp/finances?tab=reports',
             label: 'Analytics',
           },
+        ];
+
+  // "My Workspace" — self-service pages for admins/HR who are also staff
+  // members (e.g. the CEO/CTO/CFO), reached via their existing admin login.
+  const myWorkspaceItems = userRole === 'employee' ? [] : [
+          { href: '/employee/dashboard', label: 'My Dashboard' },
+          { href: '/employee/attendance', label: 'My Attendance' },
+          { href: '/employee/leave', label: 'My Leave Requests' },
         ];
 
   const isActivePath = (href: string) => {
@@ -305,6 +314,62 @@ export default function ERPLayoutWrapper({
                     )}
                   </AnimatePresence>
                 </div>
+
+                {/* My Workspace Group (mobile) — self-service access for admin/HR who are also staff */}
+                {myWorkspaceItems.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setIsMobileMyWorkspaceOpen(!isMobileMyWorkspaceOpen)}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 ${
+                        pathname?.startsWith('/employee')
+                          ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                          : 'hover:bg-gray-800/40 text-gray-300'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <span className="font-medium text-sm flex-1 text-left">My Workspace</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${isMobileMyWorkspaceOpen ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <AnimatePresence>
+                      {isMobileMyWorkspaceOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pl-4 border-l border-gray-800/80 ml-4 mt-1 space-y-1">
+                            {myWorkspaceItems.map((item) => {
+                              const isActive = pathname === item.href;
+                              return (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  onClick={() => setIsMobileMenuOpen(false)}
+                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                                    isActive
+                                      ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                                      : 'hover:bg-gray-800/40 text-gray-300'
+                                  }`}
+                                >
+                                  <span className="font-medium text-sm">{item.label}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}

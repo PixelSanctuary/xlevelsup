@@ -4,11 +4,23 @@
  * page for a logged-in employee — pages themselves render their own
  * headers/backgrounds, this only adds the banner strip above them.
  */
+import Link from 'next/link';
 import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import { getTodaysBirthdays, getTodaysWorkAnniversaries } from '@/lib/erp/employees';
 import { getTodaysFestival } from '@/lib/erp/holidays';
 import { getTodayIST } from '@/lib/erp/utils';
 import CelebrationBanners from '@/components/employee/CelebrationBanners';
+
+function AdminViewBanner() {
+  return (
+    <div className="bg-cyan/10 border-b border-cyan/20 px-4 py-2 text-center text-xs text-cyan">
+      Viewing your employee profile via your admin login ·{' '}
+      <Link href="/erp/dashboard" className="font-semibold hover:underline">
+        Back to Admin Dashboard
+      </Link>
+    </div>
+  );
+}
 
 export default async function EmployeeLayout({
   children,
@@ -16,15 +28,21 @@ export default async function EmployeeLayout({
   children: React.ReactNode;
 }) {
   const session = await getEmployeeSession();
+  const adminBanner = session?.viaAdminSession ? <AdminViewBanner /> : null;
 
   // No session (login page), mid-forced-password-change, or freelancer
-  // (attendance-only portal): skip banners entirely.
+  // (attendance-only portal): skip celebration banners entirely.
   if (
     !session ||
     session.require_password_change ||
     session.employment_type === 'freelancer'
   ) {
-    return <>{children}</>;
+    return (
+      <>
+        {adminBanner}
+        {children}
+      </>
+    );
   }
 
   const [festival, birthdays, anniversaries] = await Promise.all([
@@ -38,6 +56,7 @@ export default async function EmployeeLayout({
 
   return (
     <>
+      {adminBanner}
       <CelebrationBanners
         dateKey={dateKey}
         festival={festival ? { key: festival.festivalKey, name: festival.name } : null}

@@ -278,6 +278,9 @@ export interface EmployeeSession {
   department: string;
   employment_type?: EmploymentType;
   require_password_change: boolean;
+  /** True when this session was bridged from an ERP admin/hr login (via
+   * employees.user_id) rather than a real employee-portal login. */
+  viaAdminSession?: boolean;
 }
 
 // Attendance Change Requests

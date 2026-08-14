@@ -111,6 +111,7 @@ export async function processServiceInvoice(
           transaction_date: new Date().toISOString().slice(0, 10),
           payment_mode: paymentMethod,
           payment_status: 'completed',
+          approval_status: 'pending',
           client_name: clientName,
           reference_number: order.invoice_number,
           description,

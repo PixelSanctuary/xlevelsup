@@ -21,6 +21,8 @@ export default function ERPSidebar({
   const searchParams = useSearchParams();
   const isFinancesActive = pathname?.startsWith('/erp/finances');
   const [isFinancesOpen, setIsFinancesOpen] = useState(isFinancesActive);
+  const isMyWorkspaceActive = pathname?.startsWith('/employee');
+  const [isMyWorkspaceOpen, setIsMyWorkspaceOpen] = useState(isMyWorkspaceActive);
 
   const isActivePath = (href: string) => {
     if (pathname === href) return true;
@@ -180,6 +182,38 @@ export default function ERPSidebar({
             icon: (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2" />
+              </svg>
+            ),
+          },
+        ];
+
+  // "My Workspace" — self-service pages for admins/HR who are also staff
+  // members (e.g. the CEO/CTO/CFO), reached via their existing admin login.
+  const myWorkspaceItems = userRole === 'employee' ? [] : [
+          {
+            href: '/employee/dashboard',
+            label: 'My Dashboard',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+              </svg>
+            ),
+          },
+          {
+            href: '/employee/attendance',
+            label: 'My Attendance',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            ),
+          },
+          {
+            href: '/employee/leave',
+            label: 'My Leave Requests',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.07 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
               </svg>
             ),
           },
@@ -364,6 +398,107 @@ export default function ERPSidebar({
             )}
           </AnimatePresence>
         </div>
+
+        {/* My Workspace Group — self-service access for admin/HR who are also staff */}
+        {myWorkspaceItems.length > 0 && (
+          <div>
+            <button
+              onClick={() => !isCollapsed && setIsMyWorkspaceOpen(!isMyWorkspaceOpen)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
+                isMyWorkspaceActive
+                  ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                  : 'hover:bg-gray-800/40 hover:text-white border border-transparent text-gray-400'
+              }`}
+            >
+              {/* Person icon */}
+              <div className={`flex-shrink-0 transition-colors duration-200 ${isMyWorkspaceActive ? 'text-cyan' : 'text-gray-400 group-hover:text-cyan'}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <AnimatePresence initial={false}>
+                {!isCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="font-medium text-sm whitespace-nowrap flex-1 text-left"
+                  >
+                    My Workspace
+                  </motion.span>
+                )}
+              </AnimatePresence>
+              {!isCollapsed && (
+                <svg
+                  className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${isMyWorkspaceOpen ? 'rotate-180' : ''} ${isMyWorkspaceActive ? 'text-cyan' : 'text-gray-500'}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+              {/* Tooltip on Collapsed */}
+              {isCollapsed && (
+                <div className="absolute left-16 bg-gray-900 border border-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                  My Workspace
+                </div>
+              )}
+            </button>
+
+            {/* Sub-items */}
+            <AnimatePresence initial={false}>
+              {(isMyWorkspaceOpen || isCollapsed) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className={`mt-1 space-y-1 ${!isCollapsed ? 'pl-4 border-l border-gray-800/80 ml-4' : ''}`}>
+                    {myWorkspaceItems.map((item) => {
+                      const isActive = isActivePath(item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative ${
+                            isActive
+                              ? 'bg-cyan/10 text-cyan border border-cyan/20'
+                              : 'hover:bg-gray-800/40 hover:text-white border border-transparent'
+                          }`}
+                        >
+                          <div className={`flex-shrink-0 transition-colors duration-200 ${isActive ? 'text-cyan' : 'text-gray-400 group-hover:text-cyan'}`}>
+                            {item.icon}
+                          </div>
+                          <AnimatePresence initial={false}>
+                            {!isCollapsed && (
+                              <motion.span
+                                initial={{ opacity: 0, width: 0 }}
+                                animate={{ opacity: 1, width: 'auto' }}
+                                exit={{ opacity: 0, width: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="font-medium text-sm whitespace-nowrap"
+                              >
+                                {item.label}
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
+                          {/* Tooltip on Collapsed */}
+                          {isCollapsed && (
+                            <div className="absolute left-16 bg-gray-900 border border-gray-800 text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                              {item.label}
+                            </div>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
 
       {/* Collapse Trigger for Collapsed Sidebar */}

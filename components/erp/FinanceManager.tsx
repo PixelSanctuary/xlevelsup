@@ -225,7 +225,10 @@ export default function FinanceManager({
 
     for (const e of periodFilteredEntries) {
       const amt = Number(e.amount || 0);
-      const completed = e.payment_status === 'completed';
+      // Invoice income sits pending until an admin approves it, so it
+      // shouldn't inflate totals before that review clears.
+      const isUnapprovedInvoice = e.transaction_type === 'income' && e.approval_status === 'pending';
+      const completed = e.payment_status === 'completed' && !isUnapprovedInvoice;
 
       if (e.direction === 'inflow' && completed) totalInflow += amt;
       if (e.direction === 'outflow' && (completed || e.payment_status === 'pending')) totalOutflow += amt;
@@ -294,6 +297,7 @@ export default function FinanceManager({
       for (let m = 1; m <= 12; m++) byMonth[String(m).padStart(2, '0')] = { inflow: 0, outflow: 0 };
       for (const e of periodFilteredEntries) {
         if (e.payment_status !== 'completed') continue;
+        if (e.transaction_type === 'income' && e.approval_status === 'pending') continue;
         const m = e.transaction_date.slice(5, 7);
         if (!byMonth[m]) continue;
         const amt = Number(e.amount || 0);
@@ -310,6 +314,7 @@ export default function FinanceManager({
       const byDay: Record<string, { inflow: number; outflow: number }> = {};
       for (const e of periodFilteredEntries) {
         if (e.payment_status !== 'completed') continue;
+        if (e.transaction_type === 'income' && e.approval_status === 'pending') continue;
         const day = e.transaction_date.slice(8, 10);
         if (!byDay[day]) byDay[day] = { inflow: 0, outflow: 0 };
         const amt = Number(e.amount || 0);
@@ -694,11 +699,11 @@ export default function FinanceManager({
                     <TableCell>
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          entry.approval_status === 'approved' || entry.payment_status === 'completed'
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          entry.approval_status === 'pending'
+                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                             : entry.approval_status === 'rejected'
                             ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                            : 'bg-green-500/20 text-green-400 border border-green-500/30'
                         }`}
                       >
                         {entry.approval_status || entry.payment_status || 'completed'}
@@ -720,6 +725,25 @@ export default function FinanceManager({
                     </TableCell>
                     <TableCell>
                       <div className='flex items-center gap-2'>
+                        {entry.approval_status === 'pending' &&
+                          (entry.transaction_type !== 'income' || userRole === 'admin') && (
+                            <>
+                              <button
+                                onClick={() => handleApproval(entry.id, 'approved')}
+                                title='Approve'
+                                className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20 transition-colors'
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleApproval(entry.id, 'rejected')}
+                                title='Reject'
+                                className='px-2 py-1 rounded text-[10px] font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors'
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
                         {userRole === 'admin' && (
                           <button
                             onClick={() => handleDelete(entry.id)}
