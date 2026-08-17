@@ -13,13 +13,11 @@ import { restoreFormValues } from '@/lib/utils/form';
 
 interface AttendanceChangeRequestReviewFormProps {
   requestId: number;
-  reviewerId: number;
   onSuccess?: () => void;
 }
 
 export default function AttendanceChangeRequestReviewForm({
   requestId,
-  reviewerId,
   onSuccess,
 }: AttendanceChangeRequestReviewFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -31,7 +29,6 @@ export default function AttendanceChangeRequestReviewForm({
     const comments = (formData.get('review_comments') as string) || undefined;
     return await reviewAttendanceChangeRequestAction(
       requestId,
-      reviewerId,
       status,
       comments,
     );
@@ -41,7 +38,7 @@ export default function AttendanceChangeRequestReviewForm({
 
   useEffect(() => {
     if (state?.success) {
-      toast.success('Request reviewed successfully!');
+      toast.success('Submitted — another admin must approve before this decision applies.');
       if (onSuccess) {
         onSuccess();
       }
@@ -104,15 +101,15 @@ export default function AttendanceChangeRequestReviewForm({
       {/* Info */}
       <div className='bg-yellow-900/20 border border-yellow-700/30 rounded-lg p-3'>
         <p className='text-xs text-yellow-300'>
-          <strong>Note:</strong> If you approve this request, the attendance
-          record will be automatically updated or created.
+          <strong>Note:</strong> This submits your decision for another admin to confirm — the
+          attendance record is only created/updated once a <em>different</em> admin approves it.
         </p>
       </div>
 
       {/* Submit Button */}
       <div className='flex gap-2'>
         <Button type='submit' variant='primary' className='flex-1'>
-          Submit Review
+          Submit for Approval
         </Button>
       </div>
     </form>

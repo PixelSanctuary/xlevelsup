@@ -389,3 +389,169 @@ export async function getTodaysWorkAnniversaries(): Promise<CelebrationEmployee[
     return [];
   }
 }
+
+export interface UpcomingCelebration extends CelebrationEmployee {
+  /** Next occurrence of this date (YYYY-MM-DD), which may fall in next year. */
+  date: string;
+  daysUntil: number;
+}
+
+/**
+ * How many days from today (IST) until the next occurrence of a given
+ * month/day, wrapping into next year if it has already passed this year.
+ * Returns the occurrence date (YYYY-MM-DD) alongside the day count.
+ */
+function nextOccurrence(
+  month: number,
+  day: number,
+  today: { year: number; month: number; day: number },
+): { date: string; daysUntil: number } {
+  const todayUTC = Date.UTC(today.year, today.month - 1, today.day);
+  let occurrenceYear = today.year;
+  let occurrenceUTC = Date.UTC(occurrenceYear, month - 1, day);
+  if (occurrenceUTC < todayUTC) {
+    occurrenceYear += 1;
+    occurrenceUTC = Date.UTC(occurrenceYear, month - 1, day);
+  }
+  const daysUntil = Math.round((occurrenceUTC - todayUTC) / 86400000);
+  const date = `${occurrenceYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return { date, daysUntil };
+}
+
+/**
+ * Active employees whose next birthday falls within `withinDays` of today
+ * (IST), including today. Sorted soonest first.
+ */
+export async function getUpcomingBirthdays(
+  withinDays: number = 30,
+): Promise<UpcomingCelebration[]> {
+  try {
+    const employees = await getAllEmployees({ status: 'active' });
+    const today = getTodayIST();
+
+    const results: UpcomingCelebration[] = [];
+    for (const emp of employees) {
+      if (!emp.date_of_birth) continue;
+      const dob = new Date(emp.date_of_birth);
+      const { date, daysUntil } = nextOccurrence(
+        dob.getUTCMonth() + 1,
+        dob.getUTCDate(),
+        today,
+      );
+      if (daysUntil <= withinDays) {
+        results.push({ id: emp.id, name: emp.name, date, daysUntil });
+      }
+    }
+    return results.sort((a, b) => a.daysUntil - b.daysUntil);
+  } catch (error) {
+    console.error('Error fetching upcoming birthdays:', error);
+    return [];
+  }
+}
+
+/**
+ * Active employees (with >=1 completed year of service) whose next work
+ * anniversary falls within `withinDays` of today (IST). Sorted soonest first.
+ */
+export async function getUpcomingAnniversaries(
+  withinDays: number = 30,
+): Promise<UpcomingCelebration[]> {
+  try {
+    const employees = await getAllEmployees({ status: 'active' });
+    const today = getTodayIST();
+
+    const results: UpcomingCelebration[] = [];
+    for (const emp of employees) {
+      if (!emp.joining_date) continue;
+      const joined = new Date(emp.joining_date);
+      const { date, daysUntil } = nextOccurrence(
+        joined.getUTCMonth() + 1,
+        joined.getUTCDate(),
+        today,
+      );
+      const occurrenceYear = parseInt(date.slice(0, 4), 10);
+      const years = occurrenceYear - joined.getUTCFullYear();
+      if (years < 1 || daysUntil > withinDays) continue;
+      results.push({ id: emp.id, name: emp.name, years, date, daysUntil });
+    }
+    return results.sort((a, b) => a.daysUntil - b.daysUntil);
+  } catch (error) {
+    console.error('Error fetching upcoming anniversaries:', error);
+    return [];
+  }
+}
+
+/** Days between today (IST) and a given YYYY-MM-DD date; negative if in the past. */
+function daysFromToday(
+  date: string,
+  today: { year: number; month: number; day: number },
+): number {
+  const [y, m, d] = date.split('-').map(Number);
+  const todayUTC = Date.UTC(today.year, today.month - 1, today.day);
+  return Math.round((Date.UTC(y, m - 1, d) - todayUTC) / 86400000);
+}
+
+/**
+ * Active employees whose birthday falls in the given calendar month/year
+ * (1-12), regardless of whether it's already passed. Sorted by day of month.
+ */
+export async function getBirthdaysInMonth(
+  year: number,
+  month: number,
+): Promise<UpcomingCelebration[]> {
+  try {
+    const employees = await getAllEmployees({ status: 'active' });
+    const today = getTodayIST();
+
+    const results: UpcomingCelebration[] = [];
+    for (const emp of employees) {
+      if (!emp.date_of_birth) continue;
+      const dob = new Date(emp.date_of_birth);
+      if (dob.getUTCMonth() + 1 !== month) continue;
+      const day = dob.getUTCDate();
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      results.push({ id: emp.id, name: emp.name, date, daysUntil: daysFromToday(date, today) });
+    }
+    return results.sort((a, b) => a.date.localeCompare(b.date));
+  } catch (error) {
+    console.error('Error fetching birthdays in month:', error);
+    return [];
+  }
+}
+
+/**
+ * Active employees (with >=1 completed year of service by the given month)
+ * whose work anniversary falls in the given calendar month/year (1-12).
+ * Sorted by day of month.
+ */
+export async function getAnniversariesInMonth(
+  year: number,
+  month: number,
+): Promise<UpcomingCelebration[]> {
+  try {
+    const employees = await getAllEmployees({ status: 'active' });
+    const today = getTodayIST();
+
+    const results: UpcomingCelebration[] = [];
+    for (const emp of employees) {
+      if (!emp.joining_date) continue;
+      const joined = new Date(emp.joining_date);
+      if (joined.getUTCMonth() + 1 !== month) continue;
+      const years = year - joined.getUTCFullYear();
+      if (years < 1) continue;
+      const day = joined.getUTCDate();
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      results.push({
+        id: emp.id,
+        name: emp.name,
+        years,
+        date,
+        daysUntil: daysFromToday(date, today),
+      });
+    }
+    return results.sort((a, b) => a.date.localeCompare(b.date));
+  } catch (error) {
+    console.error('Error fetching anniversaries in month:', error);
+    return [];
+  }
+}

@@ -66,10 +66,7 @@ export default async function AttendanceChangeRequestsPage() {
 
           {/* Requests Table */}
           <div className='glass p-6 rounded-lg'>
-            <AttendanceChangeRequestsManagementTable
-              requests={allRequests}
-              userId={session.userId}
-            />
+            <AttendanceChangeRequestsManagementTable requests={allRequests} />
           </div>
         </div>
       </main>

@@ -14,7 +14,6 @@ import LeaveCalendar from './LeaveCalendar';
 
 interface LeaveManagementTableProps {
   requests: LeaveRequestWithEmployee[];
-  adminId: number;
 }
 
 // Helper functions - shared between components
@@ -45,7 +44,6 @@ const formatDate = (dateString: string) => {
 
 export default function LeaveManagementTable({
   requests,
-  adminId,
 }: LeaveManagementTableProps) {
   const [selectedRequest, setSelectedRequest] =
     useState<LeaveRequestWithEmployee | null>(null);
@@ -68,7 +66,6 @@ export default function LeaveManagementTable({
 
     const result = await reviewLeaveRequestAction(
       selectedRequest.id,
-      adminId,
       status,
       comments || undefined,
     );
@@ -76,7 +73,7 @@ export default function LeaveManagementTable({
     setProcessing(false);
 
     if (result.success) {
-      toast.success(`Leave request ${status}`);
+      toast.success('Submitted — another admin must approve before this decision applies.');
       setSelectedRequest(null);
       window.location.reload();
     } else {
@@ -408,22 +405,28 @@ function ReviewModal({
 
         {/* Action Buttons */}
         {request.status === 'pending' ? (
-          <div className='flex gap-3'>
-            <button
-              onClick={() => onReview('approved', comments)}
-              disabled={processing}
-              className='flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-            >
-              {processing ? 'Processing...' : 'Approve'}
-            </button>
-            <button
-              onClick={() => onReview('rejected', comments)}
-              disabled={processing}
-              className='flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-            >
-              {processing ? 'Processing...' : 'Reject'}
-            </button>
-          </div>
+          <>
+            <p className='text-xs text-gray-500 -mt-1'>
+              This submits your decision to another admin for confirmation — it won&apos;t take
+              effect until a <em>different</em> admin approves it.
+            </p>
+            <div className='flex gap-3'>
+              <button
+                onClick={() => onReview('approved', comments)}
+                disabled={processing}
+                className='flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+              >
+                {processing ? 'Processing...' : 'Propose Approve'}
+              </button>
+              <button
+                onClick={() => onReview('rejected', comments)}
+                disabled={processing}
+                className='flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+              >
+                {processing ? 'Processing...' : 'Propose Reject'}
+              </button>
+            </div>
+          </>
         ) : (
           <div className='bg-gray-900/50 rounded-lg p-4'>
             <p className='text-sm text-gray-400'>

@@ -6,17 +6,21 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import type { LeaveRequestFormData } from '@/types/erp';
+import type { LeaveBalance, LeaveRequestFormData } from '@/types/erp';
 import {
   createLeaveRequest,
   updateLeaveRequest,
   cancelLeaveRequest,
-  reviewLeaveRequest,
+  getLeaveRequestById,
   calculateLeaveDays,
   calculateLeaveDaysWithHolidays,
   getWfhDaysCountInMonth,
+  getEmployeeLeaveBalance,
 } from '@/lib/erp/leave-requests';
+import { createApprovalRequest } from '@/lib/erp/admin-approvals';
+import { getEmployeeById } from '@/lib/erp/employees';
 import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
+import { requireRole } from '@/lib/auth';
 
 /**
  * Verify the caller is authenticated as this exact employee and is not a
@@ -285,15 +289,35 @@ export async function cancelLeaveRequestAction(
 }
 
 /**
- * Review leave request action (for admin/managers)
+ * Get an employee's leave balances (for admin/HR use, e.g. attendance page)
+ */
+export async function getEmployeeLeaveBalanceAction(
+  employeeId: number,
+  year?: number,
+): Promise<LeaveBalance[]> {
+  try {
+    await requireRole(['admin', 'hr']);
+    return await getEmployeeLeaveBalance(employeeId, year);
+  } catch (error) {
+    console.error('Get employee leave balance error:', error);
+    return [];
+  }
+}
+
+/**
+ * Propose a review decision (approve/reject) on an employee's leave request.
+ * The decision only takes effect once a different admin/HR user confirms it
+ * (dual-control) — see lib/erp/admin-approvals.ts. The reviewer identity is
+ * always the verified session, never a client-supplied id.
  */
 export async function reviewLeaveRequestAction(
   leaveRequestId: number,
-  reviewerId: number,
   status: 'approved' | 'rejected',
   reviewComments?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await requireRole(['admin', 'hr']);
+
     const data = {
       status,
       review_comments: reviewComments || undefined,
@@ -302,21 +326,34 @@ export async function reviewLeaveRequestAction(
     // Validate
     const validated = reviewSchema.parse(data);
 
-    // Review leave request
-    await reviewLeaveRequest(
-      leaveRequestId,
-      reviewerId,
-      validated.status,
-      validated.review_comments,
-    );
+    const leaveRequest = await getLeaveRequestById(leaveRequestId);
+    if (!leaveRequest) {
+      return { success: false, error: 'Leave request not found' };
+    }
+    if (leaveRequest.status !== 'pending') {
+      return { success: false, error: 'This leave request has already been reviewed' };
+    }
 
-    revalidatePath('/erp/leave-requests');
-    revalidatePath('/employee/leave');
+    const employee = await getEmployeeById(leaveRequest.employee_id);
+    const employeeName = employee?.name || `Employee #${leaveRequest.employee_id}`;
+
+    await createApprovalRequest({
+      actionType: 'leave_review',
+      targetType: 'leave_request',
+      targetId: leaveRequestId,
+      payload: { leaveRequestId, status: validated.status, comments: validated.review_comments },
+      proposedBy: session.userId,
+      summary: `${employeeName}'s ${leaveRequest.leave_type} leave (${leaveRequest.start_date} to ${leaveRequest.end_date}): proposed to ${validated.status}`,
+    });
+
     return { success: true };
   } catch (error) {
     console.error('Review leave request error:', error);
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0].message };
+    }
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
     }
     return { success: false, error: 'Failed to review leave request' };
   }

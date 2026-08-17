@@ -182,6 +182,23 @@ export async function getPendingAttendanceChangeRequestsCount(): Promise<number>
 }
 
 /**
+ * Get a single attendance change request by id (admin use, e.g. to build a
+ * summary before proposing a review decision).
+ */
+export async function getAttendanceChangeRequestById(
+  id: number,
+): Promise<AttendanceChangeRequest | null> {
+  const { data, error } = await supabase
+    .from('attendance_change_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+
+/**
  * Check if employee has pending request for a specific date (and optionally a specific type).
  * Updated to allow one pending request per type per date.
  */
@@ -776,6 +793,10 @@ async function deductLeaveBalance(
   requestDate: string,
   leaveType: string,
 ): Promise<void> {
+  // WFH is a note on attendance, not a tracked leave balance — never create
+  // or touch a leave_balances row for it.
+  if (leaveType === 'wfh') return;
+
   const year = new Date(requestDate).getFullYear();
 
   const { data: currentBalance, error: balanceFetchError } = await supabase

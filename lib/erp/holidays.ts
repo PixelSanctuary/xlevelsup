@@ -205,6 +205,58 @@ export async function getTodaysFestival(): Promise<
   return null;
 }
 
+export interface UpcomingHoliday extends CompanyHoliday {
+  daysUntil: number;
+}
+
+/**
+ * Active company holidays (any type) falling within `withinDays` of today
+ * (IST), including today. Sorted soonest first.
+ */
+export async function getUpcomingHolidays(
+  withinDays: number = 30,
+): Promise<UpcomingHoliday[]> {
+  const { year, month, day } = getTodayIST();
+  const todayUTC = Date.UTC(year, month - 1, day);
+  const startDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const endUTC = todayUTC + withinDays * 86400000;
+  const endDateObj = new Date(endUTC);
+  const endDate = `${endDateObj.getUTCFullYear()}-${String(endDateObj.getUTCMonth() + 1).padStart(2, '0')}-${String(endDateObj.getUTCDate()).padStart(2, '0')}`;
+
+  const holidays = await getHolidaysInRange(startDate, endDate);
+  return holidays.map((h) => {
+    const [hy, hm, hd] = h.date.split('-').map(Number);
+    const daysUntil = Math.round((Date.UTC(hy, hm - 1, hd) - todayUTC) / 86400000);
+    return { ...h, daysUntil };
+  });
+}
+
+export interface MonthHoliday extends CompanyHoliday {
+  daysUntil: number;
+}
+
+/**
+ * Active company holidays (any type) falling in the given calendar
+ * month/year (1-12), regardless of whether it's already passed.
+ */
+export async function getHolidaysInMonth(
+  year: number,
+  month: number,
+): Promise<MonthHoliday[]> {
+  const { year: ty, month: tm, day: td } = getTodayIST();
+  const todayUTC = Date.UTC(ty, tm - 1, td);
+  const lastDay = new Date(year, month, 0).getDate();
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  const holidays = await getHolidaysInRange(startDate, endDate);
+  return holidays.map((h) => {
+    const [hy, hm, hd] = h.date.split('-').map(Number);
+    const daysUntil = Math.round((Date.UTC(hy, hm - 1, hd) - todayUTC) / 86400000);
+    return { ...h, daysUntil };
+  });
+}
+
 /**
  * Get total working days in a month, subtracting public holidays fetched from DB.
  * Use this in server actions / payroll generation instead of the plain getWorkingDaysInMonth.

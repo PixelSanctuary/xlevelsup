@@ -13,12 +13,10 @@ import AttendanceChangeRequestReviewForm from './AttendanceChangeRequestReviewFo
 
 interface AttendanceChangeRequestsManagementTableProps {
   requests: AttendanceChangeRequestWithEmployee[];
-  userId: number;
 }
 
 export default function AttendanceChangeRequestsManagementTable({
   requests,
-  userId,
 }: AttendanceChangeRequestsManagementTableProps) {
   const [filter, setFilter] = useState<string>('pending');
   const [selectedRequest, setSelectedRequest] =
@@ -391,7 +389,6 @@ export default function AttendanceChangeRequestsManagementTable({
             {selectedRequest.status === 'pending' ? (
               <AttendanceChangeRequestReviewForm
                 requestId={selectedRequest.id}
-                reviewerId={userId}
                 onSuccess={() => {
                   setIsReviewModalOpen(false);
                   setSelectedRequest(null);

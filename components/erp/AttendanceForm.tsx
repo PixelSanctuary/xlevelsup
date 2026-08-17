@@ -18,7 +18,7 @@ function SubmitButton() {
       className='w-full'
       disabled={pending}
     >
-      {pending ? 'Saving...' : 'Save Attendance'}
+      {pending ? 'Submitting...' : 'Submit for Approval'}
     </Button>
   );
 }
@@ -47,7 +47,7 @@ export default function AttendanceForm({
 
   useEffect(() => {
     if (state.success) {
-      toast.success('Attendance saved successfully!', {
+      toast.success('Submitted — another admin must approve before it applies.', {
         duration: 2000,
         position: 'top-center',
       });

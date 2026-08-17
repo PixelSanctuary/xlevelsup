@@ -8,10 +8,13 @@ import { z } from 'zod';
 import {
   createAttendanceChangeRequest,
   createAttendanceRegularisationRequest,
-  reviewAttendanceChangeRequest,
+  getAttendanceChangeRequestById,
   hasPendingRequestForDate,
   fetchAttendanceByEmployeeAndDate,
 } from '@/lib/erp/attendance-change-requests';
+import { createApprovalRequest } from '@/lib/erp/admin-approvals';
+import { getEmployeeById } from '@/lib/erp/employees';
+import { requireRole } from '@/lib/auth';
 import type { AttendanceStatus, AttendanceRegularisationType } from '@/types/erp';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -331,15 +334,19 @@ export async function getAttendanceForRegularisationDateAction(
 }
 
 /**
- * Review attendance change request action (admin)
+ * Propose a review decision (approve/reject) on an employee's attendance
+ * change request. The decision only takes effect once a different admin/HR
+ * user confirms it (dual-control) — see lib/erp/admin-approvals.ts. The
+ * reviewer identity is always the verified session, never a client-supplied id.
  */
 export async function reviewAttendanceChangeRequestAction(
   requestId: number,
-  reviewerId: number,
   status: 'approved' | 'rejected',
   reviewComments?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const session = await requireRole(['admin', 'hr']);
+
     const rawData = {
       status,
       review_comments: reviewComments || undefined,
@@ -347,12 +354,25 @@ export async function reviewAttendanceChangeRequestAction(
 
     const validated = reviewSchema.parse(rawData);
 
-    await reviewAttendanceChangeRequest(
-      requestId,
-      reviewerId,
-      validated.status,
-      validated.review_comments,
-    );
+    const request = await getAttendanceChangeRequestById(requestId);
+    if (!request) {
+      return { success: false, error: 'Request not found' };
+    }
+    if (request.status !== 'pending') {
+      return { success: false, error: 'This request has already been reviewed' };
+    }
+
+    const employee = await getEmployeeById(request.employee_id);
+    const employeeName = employee?.name || `Employee #${request.employee_id}`;
+
+    await createApprovalRequest({
+      actionType: 'attendance_change_review',
+      targetType: 'attendance_change_request',
+      targetId: requestId,
+      payload: { requestId, status: validated.status, comments: validated.review_comments },
+      proposedBy: session.userId,
+      summary: `${employeeName}'s attendance change request on ${request.request_date} (${request.requested_status}): proposed to ${validated.status}`,
+    });
 
     return { success: true };
   } catch (error) {

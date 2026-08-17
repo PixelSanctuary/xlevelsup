@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { m as motion } from 'framer-motion';
 import { Table, TableRow, TableCell } from './Table';
@@ -10,15 +10,17 @@ import AttendanceForm from './AttendanceForm';
 import BulkAttendanceForm from './BulkAttendanceForm';
 import { DeleteIcon } from './ActionIcons';
 import MonthPicker from './MonthPicker';
-import type { Employee, Attendance } from '@/types/erp';
+import type { Employee, Attendance, LeaveBalance, LeaveRequestWithEmployee } from '@/types/erp';
 import { formatDisplayDate, getMonthName } from '@/lib/erp/utils';
 import toast from 'react-hot-toast';
 import { deleteAttendanceAction } from '@/actions/erp/attendance';
+import { getEmployeeLeaveBalanceAction } from '@/actions/erp/leave-requests';
 import Link from 'next/link';
 
 interface AttendanceManagerProps {
   employees: Employee[];
   attendance: Attendance[];
+  leaveRequests: LeaveRequestWithEmployee[];
   initialMonth: string;
   initialEmployeeId?: number;
 }
@@ -26,6 +28,7 @@ interface AttendanceManagerProps {
 export default function AttendanceManager({
   employees,
   attendance,
+  leaveRequests,
   initialMonth,
   initialEmployeeId,
 }: AttendanceManagerProps) {
@@ -36,8 +39,10 @@ export default function AttendanceManager({
   const [employeeId, setEmployeeId] = useState<number | undefined>(
     initialEmployeeId,
   );
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar' | 'leave-report'>('table');
   const [selectedDateStr, setSelectedDateStr] = useState('');
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [loadingLeaveBalances, setLoadingLeaveBalances] = useState(false);
 
   const applyFilters = (overrides?: Partial<{ month: string; employeeId: number | undefined }>) => {
     const next = { month, employeeId, ...overrides };
@@ -48,8 +53,29 @@ export default function AttendanceManager({
     router.push(`/erp/attendance?${params.toString()}`);
   };
 
+  const loadLeaveBalances = async (empId: number | undefined) => {
+    if (!empId) {
+      setLeaveBalances([]);
+      return;
+    }
+    setLoadingLeaveBalances(true);
+    try {
+      const balances = await getEmployeeLeaveBalanceAction(empId);
+      setLeaveBalances(balances);
+    } catch {
+      toast.error('Failed to load leave balances');
+      setLeaveBalances([]);
+    } finally {
+      setLoadingLeaveBalances(false);
+    }
+  };
+
   const handleDelete = async (record: Attendance) => {
-    if (!confirm('Are you sure you want to delete this attendance record?')) {
+    if (
+      !confirm(
+        'Propose deleting this attendance record? It will only be removed once a different admin approves.',
+      )
+    ) {
       return;
     }
 
@@ -58,7 +84,7 @@ export default function AttendanceManager({
       record.date,
     );
     if (result.success) {
-      toast.success('Attendance deleted successfully');
+      toast.success('Submitted — another admin must approve before it applies.');
       router.refresh();
     } else {
       toast.error(result.error || 'Failed to delete attendance');
@@ -85,6 +111,11 @@ export default function AttendanceManager({
         return 'bg-gray-500/20 text-gray-400';
     }
   };
+
+  useEffect(() => {
+    loadLeaveBalances(initialEmployeeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEmployeeId]);
 
   const employeeMap = new Map(employees.map((e) => [e.id, e]));
 
@@ -212,6 +243,7 @@ export default function AttendanceManager({
                 const next = e.target.value ? parseInt(e.target.value) : undefined;
                 setEmployeeId(next);
                 applyFilters({ employeeId: next });
+                loadLeaveBalances(next);
               }}
               className='w-full px-4 py-2 rounded-lg bg-dark-800 border border-gray-700 text-white focus:outline-none focus:border-cyan transition-colors'
             >
@@ -225,6 +257,55 @@ export default function AttendanceManager({
           </div>
         </div>
       </div>
+
+      {/* Leave Balances for selected employee */}
+      {employeeId && (
+        <div className='glass p-4 rounded-lg mb-6'>
+          <h3 className='text-sm font-semibold text-white mb-3'>
+            🏖️ Leave Balance — {employeeMap.get(employeeId)?.name}
+          </h3>
+          {loadingLeaveBalances ? (
+            <p className='text-xs text-gray-400'>Loading leave balances...</p>
+          ) : leaveBalances.filter((b) => b.leave_type !== 'wfh').length === 0 ? (
+            <p className='text-xs text-gray-500 italic'>
+              No leave balances found for this employee.
+            </p>
+          ) : (
+            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+              {leaveBalances
+                .filter((balance) => balance.leave_type !== 'wfh')
+                .map((balance) => (
+                <div
+                  key={balance.id}
+                  className='bg-dark-800/40 border border-gray-800/60 rounded-lg px-3 py-2'
+                >
+                  <p className='text-[10px] uppercase tracking-wider text-gray-500'>
+                    {balance.leave_type.replace(/[-_]/g, ' ')}
+                  </p>
+                  <p
+                    className={`text-lg font-bold ${
+                      balance.remaining_days > 5
+                        ? 'text-green-400'
+                        : balance.remaining_days > 0
+                          ? 'text-yellow-400'
+                          : 'text-red-400'
+                    }`}
+                  >
+                    {balance.remaining_days}
+                    <span className='text-xs text-gray-400 font-normal'>
+                      {' '}
+                      / {balance.total_allocated}
+                    </span>
+                  </p>
+                  <p className='text-[10px] text-gray-500'>
+                    Used: {balance.used_days}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       <div className='grid grid-cols-2 md:grid-cols-4 gap-4 mb-6'>
@@ -279,6 +360,16 @@ export default function AttendanceManager({
           }`}
         >
           📅 Calendar View
+        </button>
+        <button
+          onClick={() => setViewMode('leave-report')}
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+            viewMode === 'leave-report'
+              ? 'bg-gradient-to-r from-cyan to-purple text-white shadow-md'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          📊 Leave Report
         </button>
       </div>
 
@@ -531,6 +622,130 @@ export default function AttendanceManager({
               })()}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Leave Report View */}
+      {viewMode === 'leave-report' && (
+        <div className='space-y-6'>
+          {(() => {
+            const totalsByEmployee = new Map<
+              number,
+              { name: string; employeeIdDisplay: string; department: string; totalDays: number; count: number }
+            >();
+            leaveRequests.forEach((req) => {
+              const existing = totalsByEmployee.get(req.employee_id);
+              if (existing) {
+                existing.totalDays += Number(req.total_days);
+                existing.count += 1;
+              } else {
+                totalsByEmployee.set(req.employee_id, {
+                  name: req.employee_name,
+                  employeeIdDisplay: req.employee_id_display,
+                  department: req.employee_department,
+                  totalDays: Number(req.total_days),
+                  count: 1,
+                });
+              }
+            });
+            const summaryRows = Array.from(totalsByEmployee.values()).sort(
+              (a, b) => b.totalDays - a.totalDays,
+            );
+            const sortedRequests = [...leaveRequests].sort(
+              (a, b) => (a.start_date < b.start_date ? 1 : -1),
+            );
+            const grandTotalDays = summaryRows.reduce((sum, r) => sum + r.totalDays, 0);
+
+            return (
+              <>
+                {/* Per-employee summary */}
+                <div className='glass rounded-lg overflow-hidden'>
+                  <div className='px-4 pt-4 flex items-center justify-between'>
+                    <h3 className='text-sm font-semibold text-white'>
+                      Leave Used {employeeId ? `— ${employeeMap.get(employeeId)?.name}` : 'by Employee'}
+                    </h3>
+                    <span className='text-xs text-gray-400'>
+                      Total: <span className='text-white font-medium'>{grandTotalDays}</span> days across{' '}
+                      {leaveRequests.length} approved request{leaveRequests.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {summaryRows.length === 0 ? (
+                    <p className='text-xs text-gray-500 italic px-4 py-6'>
+                      No approved leave found{employeeId ? ' for this employee' : ''}.
+                    </p>
+                  ) : (
+                    <div className='mt-3'>
+                      <Table headers={['Employee', 'Department', 'Requests', 'Total Days Used']}>
+                        {summaryRows.map((row) => (
+                          <TableRow key={row.employeeIdDisplay}>
+                            <TableCell>
+                              <div className='font-medium text-white'>{row.name}</div>
+                              <div className='text-xs text-gray-500'>{row.employeeIdDisplay}</div>
+                            </TableCell>
+                            <TableCell>{row.department}</TableCell>
+                            <TableCell>{row.count}</TableCell>
+                            <TableCell>
+                              <span className='font-semibold text-blue-400'>{row.totalDays}</span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Detailed leave dates */}
+                <div className='glass rounded-lg overflow-hidden'>
+                  <h3 className='text-sm font-semibold text-white px-4 pt-4'>
+                    Leave Details
+                  </h3>
+                  {sortedRequests.length === 0 ? (
+                    <p className='text-xs text-gray-500 italic px-4 py-6'>
+                      No approved leave records to show.
+                    </p>
+                  ) : (
+                    <div className='mt-3'>
+                      <Table headers={['Employee', 'Leave Type', 'Dates', 'Days', 'Reason']}>
+                        {sortedRequests.map((req) => (
+                          <TableRow key={req.id}>
+                            <TableCell>
+                              <div className='font-medium text-white'>{req.employee_name}</div>
+                              <div className='text-xs text-gray-500'>{req.employee_id_display}</div>
+                            </TableCell>
+                            <TableCell>
+                              <span className='px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 capitalize'>
+                                {req.leave_type}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className='text-sm text-white'>
+                                {formatDisplayDate(req.start_date)}
+                                {req.start_date !== req.end_date && (
+                                  <> &rarr; {formatDisplayDate(req.end_date)}</>
+                                )}
+                              </div>
+                              {req.is_half_day && (
+                                <div className='text-xs text-gray-500'>
+                                  Half day
+                                  {req.half_day_period
+                                    ? ` (${req.half_day_period === 'first_half' ? 'Morning' : 'Afternoon'})`
+                                    : ''}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>{req.total_days}</TableCell>
+                            <TableCell>
+                              <span className='text-xs text-gray-400'>{req.reason || '-'}</span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

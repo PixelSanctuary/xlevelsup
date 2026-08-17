@@ -4,15 +4,11 @@ import { z } from 'zod';
 import { requireRole, requireAuth } from '@/lib/auth';
 import {
   getAllAttendance,
-  getAttendance,
-  createAttendance,
-  updateAttendance,
-  deleteAttendance,
-  bulkUpsertAttendance,
   getMonthlyAttendanceSummary,
   getTodayAttendance,
 } from '@/lib/erp/attendance';
-import { revalidatePath } from 'next/cache';
+import { createApprovalRequest } from '@/lib/erp/admin-approvals';
+import { getEmployeeById } from '@/lib/erp/employees';
 import type { Attendance, AttendanceSummary } from '@/types/erp';
 
 const ATTENDANCE_STATUSES = [
@@ -59,6 +55,8 @@ export interface AttendanceActionResult {
   success: boolean;
   error?: string;
   attendance?: Attendance;
+  /** True when the change was queued for another admin's approval rather than applied. */
+  pending?: boolean;
 }
 
 /**
@@ -92,7 +90,9 @@ export async function getTodayAttendanceAction() {
 }
 
 /**
- * Create or update attendance
+ * Propose a create/update of an attendance record. Applies only once a
+ * different admin/HR user approves it (dual-control) — see
+ * lib/erp/admin-approvals.ts.
  */
 export async function saveAttendanceAction(
   formData: FormData,
@@ -112,29 +112,24 @@ export async function saveAttendanceAction(
 
     const validatedData = attendanceSchema.parse(rawData);
 
-    // Check if attendance already exists
-    const existing = await getAttendance(
-      validatedData.employee_id,
-      validatedData.date,
-    );
+    const employee = await getEmployeeById(validatedData.employee_id);
+    const employeeName = employee?.name || `Employee #${validatedData.employee_id}`;
 
-    let attendance;
-    if (existing) {
-      attendance = await updateAttendance(
-        validatedData.employee_id,
-        validatedData.date,
-        validatedData,
-      );
-    } else {
-      attendance = await createAttendance(validatedData, session.userId);
-    }
+    await createApprovalRequest({
+      actionType: 'attendance_save',
+      payload: validatedData,
+      proposedBy: session.userId,
+      summary: `Set ${employeeName}'s attendance on ${validatedData.date} to "${validatedData.status}"`,
+    });
 
-    revalidatePath('/erp/attendance');
-    return { success: true, attendance };
+    return { success: true, pending: true };
   } catch (error) {
     console.error('Save attendance error:', error);
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0].message };
+    }
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
     }
     return { success: false, error: 'Failed to save attendance' };
   }
@@ -143,13 +138,16 @@ export async function saveAttendanceAction(
 export interface BulkAttendanceActionResult {
   success: boolean;
   error?: string;
-  created?: number;
-  updated?: number;
+  /** True when the change was queued for another admin's approval rather than applied. */
+  pending?: boolean;
+  employeeCount?: number;
+  dateCount?: number;
 }
 
 /**
- * Bulk-set attendance status for many employees across a date range in one
- * go (e.g. mark a team present/absent/on-holiday for a week).
+ * Propose a bulk attendance status change for many employees across a date
+ * range (e.g. mark a team present/absent/on-holiday for a week). Applies
+ * only once a different admin/HR user approves it (dual-control).
  */
 export async function bulkUpdateAttendanceAction(input: {
   employeeIds: number[];
@@ -199,40 +197,65 @@ export async function bulkUpdateAttendanceAction(input: {
       };
     }
 
-    const result = await bulkUpsertAttendance(
-      validated.employee_ids,
-      dates,
-      validated.status,
-      validated.notes || null,
-      session.userId,
-      validated.half_day_period || null,
-    );
+    await createApprovalRequest({
+      actionType: 'bulk_attendance',
+      payload: {
+        employeeIds: validated.employee_ids,
+        dates,
+        status: validated.status,
+        notes: validated.notes || null,
+        halfDayPeriod: validated.half_day_period || null,
+      },
+      proposedBy: session.userId,
+      summary: `Bulk-set attendance to "${validated.status}" for ${validated.employee_ids.length} employee(s), ${dates.length} date(s) (${validated.start_date} to ${validated.end_date})`,
+    });
 
-    revalidatePath('/erp/attendance');
-    return { success: true, created: result.created, updated: result.updated };
+    return {
+      success: true,
+      pending: true,
+      employeeCount: validated.employee_ids.length,
+      dateCount: dates.length,
+    };
   } catch (error) {
     console.error('Bulk update attendance error:', error);
     if (error instanceof z.ZodError) {
       return { success: false, error: error.issues[0].message };
+    }
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
     }
     return { success: false, error: 'Failed to bulk update attendance' };
   }
 }
 
 /**
- * Delete attendance
+ * Propose deleting an attendance record. Applies only once a different
+ * admin/HR user approves it (dual-control).
  */
 export async function deleteAttendanceAction(
   employeeId: number,
   date: string,
 ): Promise<AttendanceActionResult> {
   try {
-    await requireRole(['admin', 'hr']);
-    await deleteAttendance(employeeId, date);
-    revalidatePath('/erp/attendance');
-    return { success: true };
+    const session = await requireRole(['admin', 'hr']);
+
+    const employee = await getEmployeeById(employeeId);
+    const employeeName = employee?.name || `Employee #${employeeId}`;
+
+    await createApprovalRequest({
+      actionType: 'attendance_delete',
+      targetType: 'attendance',
+      payload: { employeeId, date },
+      proposedBy: session.userId,
+      summary: `Delete ${employeeName}'s attendance record on ${date}`,
+    });
+
+    return { success: true, pending: true };
   } catch (error) {
     console.error('Delete attendance error:', error);
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
     return { success: false, error: 'Failed to delete attendance' };
   }
 }

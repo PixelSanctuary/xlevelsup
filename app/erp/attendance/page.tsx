@@ -2,6 +2,7 @@ import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getAllEmployees } from '@/lib/erp/employees';
 import { getAllAttendance } from '@/lib/erp/attendance';
+import { getAllLeaveRequests } from '@/lib/erp/leave-requests';
 import ERPLayoutWrapper from '@/components/erp/ERPLayoutWrapper';
 import AttendanceManager from '@/components/erp/AttendanceManager';
 import { getCurrentMonth } from '@/lib/erp/utils';
@@ -27,6 +28,10 @@ export default async function AttendancePage({
     month,
     employee_id: employeeId,
   });
+  const leaveRequests = await getAllLeaveRequests({
+    status: 'approved',
+    employee_id: employeeId,
+  });
 
   return (
     <ERPLayoutWrapper userEmail={session.email} userRole={session.role}>
@@ -34,6 +39,7 @@ export default async function AttendancePage({
         <AttendanceManager
           employees={employees}
           attendance={attendance}
+          leaveRequests={leaveRequests}
           initialMonth={month}
           initialEmployeeId={employeeId}
         />
