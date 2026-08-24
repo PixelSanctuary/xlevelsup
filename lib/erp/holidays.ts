@@ -16,18 +16,25 @@ export interface CompanyHoliday {
 }
 
 /**
- * Get all active holidays for a given year.
+ * Get holidays for a given year. Active-only by default (the correct
+ * behavior for employee-facing reads); pass `includeInactive: true` for
+ * admin views that need to see archived holidays too (e.g. to reactivate).
  */
 export async function getHolidaysForYear(
   year: number,
+  options?: { includeInactive?: boolean },
 ): Promise<CompanyHoliday[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('company_holidays')
     .select('*')
     .gte('date', `${year}-01-01`)
-    .lte('date', `${year}-12-31`)
-    .eq('is_active', true)
-    .order('date', { ascending: true });
+    .lte('date', `${year}-12-31`);
+
+  if (!options?.includeInactive) {
+    query = query.eq('is_active', true);
+  }
+
+  const { data, error } = await query.order('date', { ascending: true });
 
   if (error) throw error;
   return (data as CompanyHoliday[]) || [];
@@ -155,7 +162,70 @@ export async function upsertHoliday(
 }
 
 /**
- * Delete a holiday by ID.
+ * Create a new holiday (admin use). Unlike upsertHoliday (which upserts by
+ * date and can silently overwrite an existing row), this is a plain insert
+ * that surfaces a clear error if the date is already taken.
+ */
+export async function createHoliday(
+  holiday: Omit<CompanyHoliday, 'id'>,
+): Promise<CompanyHoliday> {
+  const { data, error } = await supabase
+    .from('company_holidays')
+    .insert(holiday)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('A holiday already exists on this date.');
+    }
+    throw error;
+  }
+  return data as CompanyHoliday;
+}
+
+/**
+ * Update a holiday by id (admin use) — including changing its date, which
+ * upsertHoliday cannot do since it upserts by date rather than id.
+ */
+export async function updateHoliday(
+  id: number,
+  holiday: Partial<Omit<CompanyHoliday, 'id'>>,
+): Promise<CompanyHoliday> {
+  const { data, error } = await supabase
+    .from('company_holidays')
+    .update({ ...holiday, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('A holiday already exists on this date.');
+    }
+    throw error;
+  }
+  return data as CompanyHoliday;
+}
+
+/**
+ * Archive or reactivate a holiday (admin use) — the primary "remove" action
+ * in the admin UI, preferred over hard-deleting holiday history.
+ */
+export async function setHolidayActive(
+  id: number,
+  isActive: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('company_holidays')
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Permanently delete a holiday by ID. Prefer setHolidayActive for normal
+ * "remove" flows — this is a hard delete with no history left behind.
  */
 export async function deleteHoliday(id: number): Promise<void> {
   const { error } = await supabase

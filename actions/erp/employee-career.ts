@@ -206,7 +206,7 @@ export async function applyCareerChangeAction(
 ): Promise<CareerChangeActionResult> {
   try {
     const session = await requireRole(['admin', 'hr']);
-    await applyCareerChangeById(historyId, (session as any).id as number);
+    await applyCareerChangeById(historyId, session.userId);
     revalidatePath('/erp/employees');
     return { success: true };
   } catch (error) {

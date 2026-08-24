@@ -145,7 +145,7 @@ export default async function EmployeeDashboardPage() {
         {/* Quick Actions */}
         <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6'>
           <h2 className='text-xl font-bold text-white mb-4'>Quick Actions</h2>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
             <Link
               href='/employee/attendance'
               className='block p-4 bg-green-500/10 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors'
@@ -164,6 +164,17 @@ export default async function EmployeeDashboardPage() {
               </h3>
               <p className='text-sm text-gray-400'>
                 View and manage your leave requests
+              </p>
+            </Link>
+            <Link
+              href='/employee/holidays'
+              className='block p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 transition-colors'
+            >
+              <h3 className='font-semibold text-white mb-1'>
+                🎉 Holiday Calendar
+              </h3>
+              <p className='text-sm text-gray-400'>
+                Mandatory, floater, and company holidays
               </p>
             </Link>
           </div>

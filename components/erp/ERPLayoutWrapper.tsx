@@ -78,6 +78,19 @@ export default function ERPLayoutWrapper({
         </svg>
       ),
     },
+    ...(userRole !== 'employee'
+      ? [
+          {
+            href: '/erp/holidays',
+            label: 'Holidays',
+            icon: (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            ),
+          },
+        ]
+      : []),
     {
       href: '/erp/leave-requests',
       label: 'Leave Requests',
@@ -153,6 +166,7 @@ export default function ERPLayoutWrapper({
           { href: '/employee/dashboard', label: 'My Dashboard' },
           { href: '/employee/attendance', label: 'My Attendance' },
           { href: '/employee/leave', label: 'My Leave Requests' },
+          { href: '/employee/holidays', label: 'Holiday Calendar' },
         ];
 
   const isActivePath = (href: string) => {

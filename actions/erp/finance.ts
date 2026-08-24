@@ -261,6 +261,9 @@ export async function approveLedgerEntryAction(
     if (existing.transaction_type === 'income' && session.role !== 'admin') {
       return { success: false, error: 'Only admins can approve invoice income entries' };
     }
+    if (existing.created_by === session.userId) {
+      return { success: false, error: 'You cannot approve an entry you created yourself' };
+    }
 
     const entry = await approveLedgerEntry(id, status, session.userId, comments);
 

@@ -282,6 +282,9 @@ export async function applyCareerChangeById(
   if (record.status !== 'pending_effective') {
     throw new Error(`Cannot apply a record with status '${record.status}'`);
   }
+  if (record.requested_by === adminUserId) {
+    throw new Error('You cannot apply/approve a career change you requested yourself');
+  }
 
   // Apply changes to employee
   await updateEmployeeCareerDetails(record.employee_id, {

@@ -185,6 +185,17 @@ export async function updatePayrollStatusAction(
 ): Promise<PayrollActionResult> {
   try {
     const session = await requireRole(['admin', 'hr']);
+
+    if (status === 'approved' || status === 'paid') {
+      const existing = await getPayrollById(id);
+      if (!existing) {
+        return { success: false, error: 'Payroll record not found' };
+      }
+      if (existing.generated_by === session.userId) {
+        return { success: false, error: 'You cannot approve/mark-paid a payroll run you generated yourself' };
+      }
+    }
+
     const payroll = await updatePayrollStatus(id, status, session.userId);
 
     revalidatePath('/erp/payroll');

@@ -124,6 +124,15 @@ export async function updateExpenseStatusAction(
 ): Promise<ExpenseActionResult> {
   try {
     const session = await requireRole(['admin', 'hr']);
+
+    const existing = await getExpenseById(id);
+    if (!existing) {
+      return { success: false, error: 'Expense not found' };
+    }
+    if (existing.submitted_by === session.userId) {
+      return { success: false, error: 'You cannot approve/reject an expense you submitted yourself' };
+    }
+
     const expense = await updateExpenseStatus(
       id,
       status,
@@ -164,6 +173,14 @@ export async function markExpenseReimbursedAction(
 ): Promise<ExpenseActionResult> {
   try {
     const session = await requireRole(['admin', 'hr']);
+
+    const existing = await getExpenseById(id);
+    if (!existing) {
+      return { success: false, error: 'Expense not found' };
+    }
+    if (existing.submitted_by === session.userId) {
+      return { success: false, error: 'You cannot mark your own expense as reimbursed' };
+    }
 
     const { data: expense, error } = await supabase
       .from('expenses')
