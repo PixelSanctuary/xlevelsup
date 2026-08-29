@@ -111,11 +111,14 @@ async function createEmployeeLogins() {
         const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
         // Update employee with password and auth fields
+        // Freelancers keep using the default generated password, so they
+        // aren't forced to change it on first login.
+        const isFreelancer = employee.employment_type === 'freelancer';
         const { error: updateError } = await supabase
           .from('employees')
           .update({
             password_hash: passwordHash,
-            require_password_change: true,
+            require_password_change: !isFreelancer,
             account_status: 'active',
           })
           .eq('id', employee.id);

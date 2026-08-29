@@ -194,7 +194,7 @@ export async function createEmployee(
         hourly_rate: data.hourly_rate || null,
         status: data.status,
         password_hash: passwordHash,
-        require_password_change: true,
+        require_password_change: data.employment_type !== 'freelancer',
         account_status: 'active',
       })
       .select()
