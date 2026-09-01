@@ -669,34 +669,3 @@ export interface ClientFinancialSummary {
   lastTransactionDate: string | null;
 }
 
-// Admin Action Approvals (dual-control / maker-checker)
-export type AdminApprovalActionType =
-  | 'attendance_save'
-  | 'attendance_delete'
-  | 'bulk_attendance'
-  | 'leave_review'
-  | 'attendance_change_review';
-
-export type AdminApprovalStatus = 'pending' | 'approved' | 'rejected';
-
-export interface AdminActionApproval {
-  id: number;
-  action_type: AdminApprovalActionType;
-  target_type?: string | null;
-  target_id?: number | null;
-  payload: Record<string, unknown>;
-  summary: string;
-  status: AdminApprovalStatus;
-  proposed_by: number;
-  reviewed_by?: number | null;
-  reviewed_at?: string | null;
-  review_comments?: string | null;
-  error_message?: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AdminActionApprovalWithProposer extends AdminActionApproval {
-  proposer_email: string;
-}
-

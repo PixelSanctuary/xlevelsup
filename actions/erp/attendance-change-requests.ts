@@ -5,15 +5,15 @@
 'use server';
 
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 import {
   createAttendanceChangeRequest,
   createAttendanceRegularisationRequest,
   getAttendanceChangeRequestById,
+  reviewAttendanceChangeRequest,
   hasPendingRequestForDate,
   fetchAttendanceByEmployeeAndDate,
 } from '@/lib/erp/attendance-change-requests';
-import { createApprovalRequest } from '@/lib/erp/admin-approvals';
-import { getEmployeeById } from '@/lib/erp/employees';
 import { requireRole } from '@/lib/auth';
 import type { AttendanceStatus, AttendanceRegularisationType } from '@/types/erp';
 
@@ -334,9 +334,7 @@ export async function getAttendanceForRegularisationDateAction(
 }
 
 /**
- * Propose a review decision (approve/reject) on an employee's attendance
- * change request. The decision only takes effect once a different admin/HR
- * user confirms it (dual-control) — see lib/erp/admin-approvals.ts. The
+ * Review (approve/reject) an employee's attendance change request. The
  * reviewer identity is always the verified session, never a client-supplied id.
  */
 export async function reviewAttendanceChangeRequestAction(
@@ -362,17 +360,14 @@ export async function reviewAttendanceChangeRequestAction(
       return { success: false, error: 'This request has already been reviewed' };
     }
 
-    const employee = await getEmployeeById(request.employee_id);
-    const employeeName = employee?.name || `Employee #${request.employee_id}`;
+    await reviewAttendanceChangeRequest(
+      requestId,
+      session.userId,
+      validated.status,
+      validated.review_comments,
+    );
 
-    await createApprovalRequest({
-      actionType: 'attendance_change_review',
-      targetType: 'attendance_change_request',
-      targetId: requestId,
-      payload: { requestId, status: validated.status, comments: validated.review_comments },
-      proposedBy: session.userId,
-      summary: `${employeeName}'s attendance change request on ${request.request_date} (${request.requested_status}): proposed to ${validated.status}`,
-    });
+    revalidatePath('/erp/attendance-change-requests');
 
     return { success: true };
   } catch (error) {

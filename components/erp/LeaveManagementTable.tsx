@@ -73,7 +73,7 @@ export default function LeaveManagementTable({
     setProcessing(false);
 
     if (result.success) {
-      toast.success('Submitted — another admin must approve before this decision applies.');
+      toast.success(`Leave request ${status}.`);
       setSelectedRequest(null);
       window.location.reload();
     } else {

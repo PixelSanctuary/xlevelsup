@@ -93,7 +93,7 @@ export default function BulkAttendanceForm({ employees, onSuccess }: BulkAttenda
 
       if (result.success) {
         toast.success(
-          `Submitted for approval — ${result.employeeCount ?? 0} employee(s), ${result.dateCount ?? 0} date(s). Another admin must approve before it applies.`,
+          `Attendance updated for ${result.employeeCount ?? 0} employee(s), ${result.dateCount ?? 0} date(s).`,
         );
         onSuccess?.();
       } else {

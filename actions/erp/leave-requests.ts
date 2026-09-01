@@ -12,13 +12,12 @@ import {
   updateLeaveRequest,
   cancelLeaveRequest,
   getLeaveRequestById,
+  reviewLeaveRequest,
   calculateLeaveDays,
   calculateLeaveDaysWithHolidays,
   getWfhDaysCountInMonth,
   getEmployeeLeaveBalance,
 } from '@/lib/erp/leave-requests';
-import { createApprovalRequest } from '@/lib/erp/admin-approvals';
-import { getEmployeeById } from '@/lib/erp/employees';
 import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import { requireRole } from '@/lib/auth';
 
@@ -305,10 +304,8 @@ export async function getEmployeeLeaveBalanceAction(
 }
 
 /**
- * Propose a review decision (approve/reject) on an employee's leave request.
- * The decision only takes effect once a different admin/HR user confirms it
- * (dual-control) — see lib/erp/admin-approvals.ts. The reviewer identity is
- * always the verified session, never a client-supplied id.
+ * Review (approve/reject) an employee's leave request. The reviewer
+ * identity is always the verified session, never a client-supplied id.
  */
 export async function reviewLeaveRequestAction(
   leaveRequestId: number,
@@ -334,17 +331,15 @@ export async function reviewLeaveRequestAction(
       return { success: false, error: 'This leave request has already been reviewed' };
     }
 
-    const employee = await getEmployeeById(leaveRequest.employee_id);
-    const employeeName = employee?.name || `Employee #${leaveRequest.employee_id}`;
+    await reviewLeaveRequest(
+      leaveRequestId,
+      session.userId,
+      validated.status,
+      validated.review_comments,
+    );
 
-    await createApprovalRequest({
-      actionType: 'leave_review',
-      targetType: 'leave_request',
-      targetId: leaveRequestId,
-      payload: { leaveRequestId, status: validated.status, comments: validated.review_comments },
-      proposedBy: session.userId,
-      summary: `${employeeName}'s ${leaveRequest.leave_type} leave (${leaveRequest.start_date} to ${leaveRequest.end_date}): proposed to ${validated.status}`,
-    });
+    revalidatePath('/erp/leave-requests');
+    revalidatePath('/employee/leave');
 
     return { success: true };
   } catch (error) {

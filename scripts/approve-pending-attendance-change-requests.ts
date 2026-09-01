@@ -1,11 +1,7 @@
 /**
- * ONE-TIME fix: approve all currently pending attendance change requests.
- *
- * This bypasses the normal maker-checker flow (lib/erp/admin-approvals.ts),
- * which otherwise requires a second admin/HR user to independently confirm
- * each review before it takes effect. Use only when you've already reviewed
- * the pending list yourself and accept responsibility for approving them
- * without a second reviewer (e.g. to unblock a payroll run).
+ * Bulk-approve all currently pending attendance change requests from the
+ * command line, without opening the review UI for each one individually
+ * (e.g. to unblock a payroll run).
  *
  * Mirrors the exact approval logic in lib/erp/attendance-change-requests.ts
  * (reviewAttendanceChangeRequest + its per-type handlers) so the resulting

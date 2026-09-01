@@ -38,7 +38,7 @@ export default function AttendanceChangeRequestReviewForm({
 
   useEffect(() => {
     if (state?.success) {
-      toast.success('Submitted — another admin must approve before this decision applies.');
+      toast.success('Request reviewed.');
       if (onSuccess) {
         onSuccess();
       }

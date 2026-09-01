@@ -47,7 +47,7 @@ export default function AttendanceForm({
 
   useEffect(() => {
     if (state.success) {
-      toast.success('Submitted — another admin must approve before it applies.', {
+      toast.success('Attendance saved.', {
         duration: 2000,
         position: 'top-center',
       });

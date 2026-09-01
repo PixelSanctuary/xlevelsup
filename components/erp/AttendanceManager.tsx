@@ -72,9 +72,7 @@ export default function AttendanceManager({
 
   const handleDelete = async (record: Attendance) => {
     if (
-      !confirm(
-        'Propose deleting this attendance record? It will only be removed once a different admin approves.',
-      )
+      !confirm('Delete this attendance record?')
     ) {
       return;
     }
@@ -84,7 +82,7 @@ export default function AttendanceManager({
       record.date,
     );
     if (result.success) {
-      toast.success('Submitted — another admin must approve before it applies.');
+      toast.success('Attendance record deleted.');
       router.refresh();
     } else {
       toast.error(result.error || 'Failed to delete attendance');

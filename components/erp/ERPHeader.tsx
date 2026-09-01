@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { useSensitiveData } from './SensitiveDataContext';
 import UpcomingEventsPanel from './UpcomingEventsPanel';
-import AdminApprovalsPanel from './AdminApprovalsPanel';
 
 interface ERPHeaderProps {
   userEmail: string;
@@ -100,9 +99,6 @@ export default function ERPHeader({
       <div className="flex items-center gap-4">
         {/* Upcoming events: birthdays, work anniversaries, holidays */}
         <UpcomingEventsPanel />
-
-        {/* Dual-control approvals for admin/HR actions — not relevant to employee-role sessions */}
-        {(userRole === 'admin' || userRole === 'hr') && <AdminApprovalsPanel />}
 
         {/* Show/Hide financial figures — one global switch for every salary
             and financial number rendered across the ERP admin area, so it
