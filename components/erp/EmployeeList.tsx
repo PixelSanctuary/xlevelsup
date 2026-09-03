@@ -217,6 +217,11 @@ export default function EmployeeList({
                     <div className='text-xs text-gray-600'>
                       Joined: {formatDisplayDate(employee.joining_date)}
                     </div>
+                    {employee.date_of_birth && (
+                      <div className='text-xs text-gray-600'>
+                        DOB: {formatDisplayDate(employee.date_of_birth)}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>{employee.department}</TableCell>
                   <TableCell>{employee.role}</TableCell>

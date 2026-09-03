@@ -178,6 +178,24 @@ export default function DatePicker({
     });
   };
 
+  const setDisplayMonth = (month: number) => {
+    setDisplayDate((prev) => new Date(prev.getFullYear(), month, 1));
+  };
+
+  const setDisplayYear = (year: number) => {
+    setDisplayDate((prev) => new Date(year, prev.getMonth(), 1));
+  };
+
+  // Year dropdown bounds: honor minDate/maxDate where given (e.g. a leave
+  // request's minDate=tomorrow keeps the list to nearby years), otherwise
+  // fall back to a wide range so a field like date-of-birth is usable
+  // without every caller having to pass explicit bounds.
+  const currentYear = new Date().getFullYear();
+  const minYear = minDate ? parseLocalDateString(minDate).getFullYear() : currentYear - 100;
+  const maxYear = maxDate ? parseLocalDateString(maxDate).getFullYear() : currentYear + 10;
+  const yearOptions: number[] = [];
+  for (let y = maxYear; y >= minYear; y--) yearOptions.push(y);
+
   const renderCalendar = () => {
     const year = displayDate.getFullYear();
     const month = displayDate.getMonth();
@@ -299,10 +317,29 @@ export default function DatePicker({
                 </svg>
               </button>
 
-              <div className='text-center'>
-                <div className='font-semibold text-white'>
-                  {monthNames[displayDate.getMonth()]} {displayDate.getFullYear()}
-                </div>
+              <div className='flex items-center gap-1'>
+                <select
+                  value={displayDate.getMonth()}
+                  onChange={(e) => setDisplayMonth(Number(e.target.value))}
+                  className='bg-transparent text-white text-sm font-semibold focus:outline-none cursor-pointer hover:bg-gray-800 rounded px-1 py-0.5'
+                >
+                  {monthNames.map((name, index) => (
+                    <option key={name} value={index} className='bg-[#1a1a1a]'>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={displayDate.getFullYear()}
+                  onChange={(e) => setDisplayYear(Number(e.target.value))}
+                  className='bg-transparent text-white text-sm font-semibold focus:outline-none cursor-pointer hover:bg-gray-800 rounded px-1 py-0.5'
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y} className='bg-[#1a1a1a]'>
+                      {y}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button

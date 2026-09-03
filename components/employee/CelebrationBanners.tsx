@@ -120,11 +120,11 @@ export default function CelebrationBanners({
   const isSelfBirthday = birthdays.some((b) => b.id === currentEmployeeId);
   const birthdayMessage = isSelfBirthday
     ? birthdays.length === 1
-      ? 'Wishing you a fantastic year ahead — enjoy your day! 🎉'
-      : `Happy Birthday to you and to ${joinNames(
+      ? 'Hope your day is filled with cake, good company, and zero notifications. Have a great one! 🎉'
+      : `You're sharing the spotlight with ${joinNames(
           birthdayNames.filter((n, i) => birthdays[i].id !== currentEmployeeId),
-        )}! Have a wonderful day.`
-    : `Let's all wish ${joinNames(birthdayNames)} a very happy birthday today!`;
+        )} today — happy birthday to you both! 🎉`
+    : `Take a moment to wish ${joinNames(birthdayNames)} a very happy birthday today! 🎈`;
 
   const anniversaryMessage = anniversaries
     .map((a) => `${a.name} completes ${a.years} year${a.years === 1 ? '' : 's'} with us today`)
