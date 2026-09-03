@@ -63,15 +63,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Handle form submission with controlled state so values survive re-renders
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData();
-    formData.set('email', email);
-    formData.set('password', password);
-    formAction(formData);
-  };
-
   // Handle successful login
   useEffect(() => {
     if (state.success && state.redirectTo) {
@@ -116,7 +107,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className='space-y-6'>
+          <form action={formAction} className='space-y-6'>
             <div>
               <label htmlFor='email' className='block text-sm font-medium mb-2'>
                 Email Address

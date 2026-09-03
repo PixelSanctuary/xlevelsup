@@ -4,7 +4,7 @@
  * Employee Portal Login Page
  */
 
-import { useActionState, useEffect, Suspense, useRef, useState } from 'react';
+import { useActionState, useEffect, Suspense, useRef, useState, startTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { employeeLoginAction } from '@/actions/erp/employee-auth';
 import Button from '@/components/ui/Button';
@@ -106,7 +106,9 @@ function EmployeeLoginForm() {
         }
       });
     }
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (

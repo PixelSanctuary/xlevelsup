@@ -266,6 +266,38 @@ export async function updateEmployee(
 }
 
 /**
+ * Update the fields an employee is allowed to self-edit from the employee
+ * portal: name, phone, date of birth. Deliberately excludes email (also the
+ * login username), salary, role, department, employment_type, and status —
+ * those stay admin/HR-only via updateEmployee above.
+ */
+export async function updateOwnEmployeeBasicDetails(
+  id: number,
+  data: { name: string; phone: string; date_of_birth?: string | null },
+): Promise<Employee> {
+  try {
+    const { data: employee, error } = await supabase
+      .from('employees')
+      .update({
+        name: data.name,
+        phone: data.phone,
+        date_of_birth: data.date_of_birth || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw handleDatabaseError(error, 'update profile');
+    }
+    return employee;
+  } catch (error) {
+    throw handleDatabaseError(error, 'update profile');
+  }
+}
+
+/**
  * Delete employee
  */
 export async function deleteEmployee(id: number): Promise<void> {

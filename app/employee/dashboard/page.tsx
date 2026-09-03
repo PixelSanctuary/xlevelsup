@@ -69,9 +69,15 @@ export default async function EmployeeDashboardPage() {
           {/* Profile Card - Takes 2 columns */}
           <div className='lg:col-span-2'>
             <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 h-full'>
-              <h2 className='text-xl font-bold text-white mb-4'>
-                Your Profile
-              </h2>
+              <div className='flex items-center justify-between mb-4'>
+                <h2 className='text-xl font-bold text-white'>Your Profile</h2>
+                <Link
+                  href='/employee/profile'
+                  className='text-sm text-[var(--cyan)] hover:underline'
+                >
+                  Edit Profile
+                </Link>
+              </div>
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 <div>
                   <p className='text-gray-400 text-sm'>Employee ID</p>
@@ -145,7 +151,16 @@ export default async function EmployeeDashboardPage() {
         {/* Quick Actions */}
         <div className='bg-[#1a1a1a] border border-gray-800 rounded-lg p-6'>
           <h2 className='text-xl font-bold text-white mb-4'>Quick Actions</h2>
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+          <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+            <Link
+              href='/employee/profile'
+              className='block p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg hover:bg-orange-500/20 transition-colors'
+            >
+              <h3 className='font-semibold text-white mb-1'>👤 My Profile</h3>
+              <p className='text-sm text-gray-400'>
+                Update your name, phone, and date of birth
+              </p>
+            </Link>
             <Link
               href='/employee/attendance'
               className='block p-4 bg-green-500/10 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors'

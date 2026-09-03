@@ -7,8 +7,10 @@ import {
   getEmployeeById,
   createEmployee,
   updateEmployee,
+  updateOwnEmployeeBasicDetails,
   deleteEmployee,
 } from '@/lib/erp/employees';
+import { getEmployeeSession } from '@/lib/erp/employee-portal-auth';
 import { revalidatePath } from 'next/cache';
 import type { Employee } from '@/types/erp';
 
@@ -196,5 +198,58 @@ export async function deleteEmployeeAction(
   } catch (error) {
     console.error('Delete employee error:', error);
     return { success: false, error: 'Failed to delete employee' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Employee self-service (employee portal — NOT admin/HR)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const basicDetailsSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z.string().min(10, 'Phone must be at least 10 digits'),
+  date_of_birth: z.string().optional().nullable(),
+});
+
+/**
+ * Let a logged-in employee update their own name, phone, and date of birth.
+ * Never touches email (also the login username), salary, role, department,
+ * employment_type, or status — those remain admin/HR-only via
+ * updateEmployeeAction above. The target id is always the caller's own
+ * verified session id, never a client-supplied one.
+ */
+export async function updateOwnBasicDetailsAction(
+  prevState: any,
+  formData: FormData,
+): Promise<{ success: boolean; error?: string; employee?: Employee }> {
+  try {
+    const session = await getEmployeeSession();
+    if (!session) {
+      return { success: false, error: 'Not authenticated. Please log in again.' };
+    }
+
+    const rawData = {
+      name: formData.get('name') as string,
+      phone: formData.get('phone') as string,
+      date_of_birth: (formData.get('date_of_birth') as string) || null,
+    };
+
+    const validated = basicDetailsSchema.parse(rawData);
+
+    const employee = await updateOwnEmployeeBasicDetails(session.id, validated);
+
+    revalidatePath('/employee/profile');
+    revalidatePath('/employee/dashboard');
+
+    return { success: true, employee };
+  } catch (error) {
+    console.error('Update own basic details error:', error);
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.issues[0].message };
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update your details',
+    };
   }
 }
