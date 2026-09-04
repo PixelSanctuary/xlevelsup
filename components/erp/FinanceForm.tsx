@@ -292,6 +292,15 @@ export default function FinanceForm({
             >
               <option value=''>— Select Investor / Source —</option>
 
+              {/* Directors & Stakeholders — no dedicated company_accounts row
+                  anymore (the Director account was removed), but historical
+                  investment entries are tagged with this as payer_name, and
+                  new director-funded investments still need to be recorded
+                  the same way. */}
+              <optgroup label='Directors & Stakeholders'>
+                <option value='Director'>Director</option>
+              </optgroup>
+
               {/* Employees */}
               {employees.length > 0 && (
                 <optgroup label='Employees'>

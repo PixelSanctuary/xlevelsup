@@ -3,6 +3,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
+import { computeNetSalary } from '@/lib/erp/utils';
 import type { Payroll, PayrollWithEmployee } from '@/types/erp';
 
 /**
@@ -153,7 +154,17 @@ export async function updatePayrollAdjustments(
 
   if (fetchError) throw fetchError;
 
-  const netSalary = payroll.gross_salary + bonus - deduction;
+  // Must go through computeNetSalary: gross_salary is the full contracted
+  // salary, so a plain `gross + bonus - deduction` here would silently drop
+  // the loss of pay for unpaid days and overpay an absent employee.
+  const { net_salary: netSalary } = computeNetSalary({
+    total_working_days: payroll.total_working_days,
+    payable_days: payroll.payable_days,
+    per_day_salary: payroll.per_day_salary,
+    gross_salary: payroll.gross_salary,
+    bonus,
+    deduction,
+  });
 
   const { data, error } = await supabase
     .from('payroll')

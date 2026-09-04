@@ -3,6 +3,7 @@
  */
 
 import { supabaseServer as supabase } from '@/lib/supabase-server';
+import type { PayrollAttendanceStatus } from '@/lib/erp/utils';
 import type {
   Attendance,
   AttendanceFormData,
@@ -256,6 +257,49 @@ export async function getMonthlyAttendanceSummary(
   };
 
   return summary;
+}
+
+/**
+ * Attendance for a whole month, for every employee at once, as
+ * employee_id -> (YYYY-MM-DD -> status).
+ *
+ * Payroll needs the per-date status rather than the bare counts that
+ * getMonthlyAttendanceSummary returns, so it can tell a working day apart
+ * from a weekend clock-in and spot working days with no row at all. Fetched
+ * in one query for the whole run instead of once per employee.
+ */
+export async function getMonthlyAttendanceByEmployeeDate(
+  month: string,
+): Promise<Map<number, Map<string, PayrollAttendanceStatus>>> {
+  const startDate = `${month}-01`;
+  const nextMonth = new Date(month + '-01');
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  const nextMonthStr = nextMonth.toISOString().substring(0, 10);
+
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('employee_id, date, status')
+    .gte('date', startDate)
+    .lt('date', nextMonthStr);
+
+  if (error) throw error;
+
+  const byEmployee = new Map<number, Map<string, PayrollAttendanceStatus>>();
+
+  for (const record of data || []) {
+    // `date` can come back as a full timestamp depending on the column type;
+    // payroll compares against plain YYYY-MM-DD working-day keys.
+    const dateKey = String(record.date).substring(0, 10);
+
+    let dates = byEmployee.get(record.employee_id);
+    if (!dates) {
+      dates = new Map<string, PayrollAttendanceStatus>();
+      byEmployee.set(record.employee_id, dates);
+    }
+    dates.set(dateKey, record.status as PayrollAttendanceStatus);
+  }
+
+  return byEmployee;
 }
 
 /**

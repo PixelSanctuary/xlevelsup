@@ -13,11 +13,13 @@ import {
   deletePayrollByMonth,
 } from '@/lib/erp/payroll';
 import { getAllEmployees } from '@/lib/erp/employees';
-import { getMonthlyAttendanceSummary } from '@/lib/erp/attendance';
+import { getMonthlyAttendanceByEmployeeDate } from '@/lib/erp/attendance';
+import { getHolidayDateSetInRange } from '@/lib/erp/holidays';
 import {
-  getWorkingDaysInMonth,
+  getWorkingDayDatesInMonth,
   calculatePayroll,
   getMonthDateRange,
+  type PayrollAttendanceStatus,
 } from '@/lib/erp/utils';
 import { revalidatePath } from 'next/cache';
 import type { PayrollWithEmployee } from '@/types/erp';
@@ -68,7 +70,19 @@ export async function generatePayrollAction(
     }
 
     const [year, monthNum] = month.split('-').map(Number);
-    const totalWorkingDays = getWorkingDaysInMonth(year, monthNum);
+
+    // Public holidays are not working days: counting them would understate
+    // per-day salary and dock anyone who correctly did not work that day.
+    const { startDate, endDate } = getMonthDateRange(month);
+    const holidaySet = await getHolidayDateSetInRange(startDate, endDate);
+    const workingDayDates = getWorkingDayDatesInMonth(
+      year,
+      monthNum,
+      holidaySet,
+    );
+
+    // One query for the whole run, rather than one per employee.
+    const attendanceByEmployee = await getMonthlyAttendanceByEmployeeDate(month);
 
     let generatedCount = 0;
     let skippedCount = 0;
@@ -82,28 +96,34 @@ export async function generatePayrollAction(
         continue;
       }
 
-      // Get attendance summary
-      const attendanceSummary = await getMonthlyAttendanceSummary(
-        employee.id,
-        month,
-      );
+      // No monthly salary configured — hourly freelancers, who are paid
+      // through the hourly flow rather than monthly payroll, and anyone whose
+      // pay hasn't been set up yet. A zero row can't be approved or paid, so
+      // it would only be noise on the payroll screen.
+      if (!employee.monthly_salary) {
+        skippedCount++;
+        continue;
+      }
 
-      const presentDays = attendanceSummary?.present_days || 0;
-      const halfDays = attendanceSummary?.half_days || 0;
-      const paidLeaveDays = attendanceSummary?.paid_leave_days || 0;
-      const unpaidLeaveDays = attendanceSummary?.unpaid_leave_days || 0;
-      const absentDays = attendanceSummary?.absent_days || 0;
+      const attendanceByDate =
+        attendanceByEmployee.get(employee.id) ||
+        new Map<string, PayrollAttendanceStatus>();
 
       // Calculate payroll
       const calculation = calculatePayroll(
         employee.monthly_salary || 0,
-        presentDays,
-        halfDays,
-        paidLeaveDays,
-        unpaidLeaveDays,
-        absentDays,
-        totalWorkingDays,
+        workingDayDates,
+        attendanceByDate,
+        { from: employee.joining_date, to: employee.end_date },
       );
+
+      // Not employed for a single working day of this month — someone hired
+      // after it, or who left before it. No payslip is owed, and generating a
+      // zero row would just be noise on the screen.
+      if (calculation.not_employed_days === calculation.total_working_days) {
+        skippedCount++;
+        continue;
+      }
 
       try {
         await createPayroll({
@@ -120,7 +140,10 @@ export async function generatePayrollAction(
           gross_salary: calculation.gross_salary,
           bonus: 0,
           deduction: 0,
-          net_salary: calculation.gross_salary,
+          // gross_salary is the contracted monthly pay; net is what's left
+          // after loss of pay for unpaid days. The two differ whenever
+          // payable_days < total_working_days.
+          net_salary: calculation.net_salary,
           status: 'draft',
           notes: null,
           generated_by: session.userId,

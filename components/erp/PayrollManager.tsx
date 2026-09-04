@@ -24,6 +24,20 @@ interface PayrollManagerProps {
   initialStatus?: string;
 }
 
+/**
+ * Unpaid days behind a record — working days the employee wasn't paid for.
+ * Derived rather than stored: the payroll table has no lop column, so this
+ * mirrors computeNetSalary() in lib/erp/utils.ts.
+ */
+function lopDaysOf(record: PayrollWithEmployee): number {
+  return Math.max(0, record.total_working_days - record.payable_days);
+}
+
+/** Rupee value of those unpaid days — the gap between gross and net. */
+function lopDeductionOf(record: PayrollWithEmployee): number {
+  return record.per_day_salary * lopDaysOf(record);
+}
+
 export default function PayrollManager({
   payroll,
   initialMonth,
@@ -265,6 +279,8 @@ export default function PayrollManager({
                   <div className='text-xs text-gray-500'>
                     P:{record.present_days} H:{record.half_days} L:
                     {record.paid_leave_days}
+                    {lopDaysOf(record) > 0 &&
+                      ` A:${lopDaysOf(record).toFixed(1)}`}
                   </div>
                 </TableCell>
                 <TableCell><SensitiveValue>{formatCurrency(record.gross_salary)}</SensitiveValue></TableCell>
@@ -272,9 +288,13 @@ export default function PayrollManager({
                   <div className='font-medium text-white'>
                     <SensitiveValue>{formatCurrency(record.net_salary)}</SensitiveValue>
                   </div>
-                  {(record.bonus > 0 || record.deduction > 0) && (
+                  {(record.bonus > 0 ||
+                    record.deduction > 0 ||
+                    lopDeductionOf(record) > 0) && (
                     <div className='text-xs text-gray-500'>
                       <SensitiveValue>
+                        {lopDeductionOf(record) > 0 &&
+                          `-${formatCurrency(lopDeductionOf(record))} LOP `}
                         {record.bonus > 0 && `+${formatCurrency(record.bonus)} `}
                         {record.deduction > 0 &&
                           `-${formatCurrency(record.deduction)}`}
